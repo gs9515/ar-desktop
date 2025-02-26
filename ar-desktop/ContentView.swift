@@ -19,9 +19,10 @@ struct ContentView: View {
     var body: some View {
         GeometryReader { proxy in
             let textWidth = min(max(proxy.size.width * 0.4, 300), 500)
+            
             ZStack {
                 HStack(spacing: 60) {
-                    VStack(alignment: .leading, spacing: 0) {
+                    VStack(alignment: .center, spacing: 0) {  // Ensure center alignment
                         Text("Vision Stack Pro")
                             .font(.system(size: 50, weight: .bold))
                             .padding(.bottom, 15)
@@ -31,6 +32,7 @@ struct ContentView: View {
 
                             You can place the cubes on tables and other surfaces, and also interact with them using your hands!
                             """)
+                            .multilineTextAlignment(.center)  // Ensures text is centered
                             .padding(.bottom, 30)
                             .accessibilitySortPriority(3)
 
@@ -48,10 +50,13 @@ struct ContentView: View {
                     }
                     .frame(width: textWidth)
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)  // Ensures centering
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)  // Ensures ZStack fills space
         }
     }
 }
+
 
             
             

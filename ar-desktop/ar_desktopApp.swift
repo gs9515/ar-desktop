@@ -21,6 +21,6 @@ struct ar_desktopApp: App {
         ImmersiveSpace(id: "StackingSpace") {
             StackingView()
         }
-        .immersionStyle(selection: .constant(.progressive), in: .progressive)
+        .immersionStyle(selection: .constant(.mixed), in: .mixed) // Enables passthrough mode
     }
 }
