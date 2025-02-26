@@ -15,18 +15,11 @@ struct ar_desktopApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
-                .environment(appModel)
+//                .environment(appModel)
         }
 
-        ImmersiveSpace(id: appModel.immersiveSpaceID) {
-            ImmersiveView()
-                .environment(appModel)
-                .onAppear {
-                    appModel.immersiveSpaceState = .open
-                }
-                .onDisappear {
-                    appModel.immersiveSpaceState = .closed
-                }
+        ImmersiveSpace(id: "StackingSpace") {
+            StackingView()
         }
         .immersionStyle(selection: .constant(.progressive), in: .progressive)
     }
