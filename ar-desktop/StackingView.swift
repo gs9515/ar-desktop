@@ -31,7 +31,7 @@ struct StackingView: View {
             
             Task {
                 // place our cubes
-                await model.placeCube()
+                await model.placeFile(named: "Affirmations")
             }
         }))
     }

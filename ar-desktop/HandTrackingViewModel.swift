@@ -10,6 +10,8 @@ import RealityKit
 import SwiftUI
 import ARKit
 import RealityKitContent
+import UIKit
+import PDFKit
 
 @MainActor class HandTrackingViewModel: ObservableObject {
     // Hand tracking
@@ -107,29 +109,115 @@ import RealityKitContent
     }
     
     
-    // placing cubes/files!
-    func placeCube() async {
+//    // placing cubes/files!
+//    func placeCube() async {
+//        guard let leftFingerPosition = fingerEntities[.left]?.transform.translation else { return }
+//        
+//        // make adjustment to position it nicely relative to hand
+//        let placementLocation = leftFingerPosition + SIMD3<Float>(0, -0.05, 0)
+//        
+//        let entity = ModelEntity(mesh: .generateBox(size: 0.1), materials: [SimpleMaterial(color: .systemBlue, isMetallic: false)], collisionShape: .generateBox(size: SIMD3<Float>(repeating: 0.1)), mass: 1.0)
+//        
+//        entity.setPosition(placementLocation, relativeTo: nil)
+//        
+//        entity.components.set(InputTargetComponent(allowedInputTypes: .indirect))
+//        entity.components.set(GroundingShadowComponent(castsShadow: true))
+//        
+//        // generate a material with friction
+//        let material = PhysicsMaterialResource.generate(friction: 0.8, restitution: 0.0)
+//        
+//        entity.components.set(PhysicsBodyComponent(shapes: entity.collision!.shapes, mass: 1.0, material: material, mode: .dynamic))
+//        
+//        
+//        contentEntity.addChild(entity)
+//        
+//        
+//    }
+    
+    func imageFromPDF(url: URL) -> UIImage? {
+        guard let document = PDFDocument(url: url),
+              let page = document.page(at: 0) else {
+            print("Failed to load PDF")
+            return nil
+        }
+
+        let pageRect = page.bounds(for: .mediaBox)
+        let renderer = UIGraphicsImageRenderer(size: pageRect.size)
+
+        // Create the image with proper orientation
+        let image = renderer.image { context in
+            // Clear the background with white
+            UIColor.white.set()
+            context.fill(pageRect)
+            
+            // Save the graphics state
+            context.cgContext.saveGState()
+            
+            // Flip the context vertically to correct the orientation
+            // PDFs have origin at bottom-left, UIKit has origin at top-left
+            context.cgContext.translateBy(x: 0, y: pageRect.size.height)
+            context.cgContext.scaleBy(x: 1.0, y: -1.0)
+            
+            // Draw the PDF page in the properly transformed context
+            page.draw(with: .mediaBox, to: context.cgContext)
+            
+            // Restore the graphics state
+            context.cgContext.restoreGState()
+        }
+        
+        return image
+    }
+
+    func placeFile(named filename: String) async {
         guard let leftFingerPosition = fingerEntities[.left]?.transform.translation else { return }
-        
-        // make adjustment to position it nicely relative to hand
         let placementLocation = leftFingerPosition + SIMD3<Float>(0, -0.05, 0)
+
+        // Load PDF and generate image with corrected orientation
+        guard let pdfURL = Bundle.main.url(forResource: filename, withExtension: "pdf"),
+              let pdfImage = imageFromPDF(url: pdfURL),
+              let cgImage = pdfImage.cgImage else {
+            print("PDF processing error")
+            return
+        }
+
+        // Create a texture from the PDF image
+        guard let textureResource = try? await TextureResource(image: cgImage, options: .init(semantic: nil)) else {
+            print("Texture conversion error")
+            return
+        }
         
-        let entity = ModelEntity(mesh: .generateBox(size: 0.1), materials: [SimpleMaterial(color: .systemBlue, isMetallic: false)], collisionShape: .generateBox(size: SIMD3<Float>(repeating: 0.1)), mass: 1.0)
+        var textMaterial = UnlitMaterial()
+        textMaterial.color = .init(tint: .white, texture: .init(textureResource))
         
-        entity.setPosition(placementLocation, relativeTo: nil)
+        // Match box proportions to PDF aspect
+        let imageSize = pdfImage.size
+        let aspectRatio = imageSize.height / imageSize.width
+        let desiredWidth: Float = 0.2
+        let desiredHeight: Float = desiredWidth * Float(aspectRatio)
         
-        entity.components.set(InputTargetComponent(allowedInputTypes: .indirect))
-        entity.components.set(GroundingShadowComponent(castsShadow: true))
+        // "Paper" box
+        let fileEntity = ModelEntity(
+            mesh: .generateBox(size: SIMD3<Float>(desiredWidth, 0.002, desiredHeight)),
+            materials: [SimpleMaterial(color: .white, isMetallic: false)],
+            collisionShape: .generateBox(size: SIMD3<Float>(desiredWidth, 0.002, desiredHeight)),
+            mass: 1.0
+        )
+        fileEntity.setPosition(placementLocation, relativeTo: nil)
         
-        // generate a material with friction
-        let material = PhysicsMaterialResource.generate(friction: 0.8, restitution: 0.0)
+        // PDF plane
+        let textPlane = ModelEntity(
+            mesh: .generatePlane(width: desiredWidth, height: desiredHeight),
+            materials: [textMaterial]
+        )
+        fileEntity.addChild(textPlane)
         
-        entity.components.set(PhysicsBodyComponent(shapes: entity.collision!.shapes, mass: 1.0, material: material, mode: .dynamic))
+        // Position the plane slightly above the top face of the box
+        textPlane.setPosition(SIMD3<Float>(0, 0.0011, 0), relativeTo: fileEntity)
         
+        // Rotate the plane to face upward
+        textPlane.transform.rotation = simd_quatf(angle: -Float.pi/2, axis: SIMD3<Float>(1, 0, 0))
         
-        contentEntity.addChild(entity)
-        
-        
+        contentEntity.addChild(fileEntity)
     }
     
 }

@@ -15,6 +15,7 @@ struct ContentView: View {
     @Environment(\.dismissImmersiveSpace) var dismissImmersiveSpace
 
     @State var showImmersiveSpace = false
+    @State var immersiveSpaceIsActive = false
 
     var body: some View {
         GeometryReader { proxy in
@@ -41,8 +42,10 @@ struct ContentView: View {
                                 Task {
                                     if isShowing {
                                         await openImmersiveSpace(id: "StackingSpace")
-                                    } else {
+                                        immersiveSpaceIsActive = true
+                                    } else if immersiveSpaceIsActive {
                                         await dismissImmersiveSpace()
+                                        immersiveSpaceIsActive = false
                                     }
                                 }
                             }
