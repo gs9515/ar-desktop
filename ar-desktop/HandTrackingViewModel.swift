@@ -14,6 +14,8 @@ import UIKit
 import PDFKit
 
 @MainActor class HandTrackingViewModel: ObservableObject {
+    @Published var objectsPlaced: Int = 0
+
     // Hand tracking
     private let session = ARKitSession()
     private let handTracking = HandTrackingProvider()
@@ -105,6 +107,93 @@ import PDFKit
             }
         }
     }
+
+    
+    //////////////////////////
+    
+    // Helper function to extract the first material from a ModelEntity inside a USD file
+    func extractMaterial(fromUSDNamed usdName: String, entityName: String) async throws -> RealityKit.Material {
+        let loadedEntity = try await Entity(named: usdName, in: realityKitContentBundle)
+        guard let modelEntity = loadedEntity.findEntity(named: entityName) as? ModelEntity,
+              let material = modelEntity.model?.materials.first else {
+            throw NSError(domain: "MaterialError", code: 1, userInfo: [NSLocalizedDescriptionKey: "Material not found in \(usdName) -> \(entityName)"])
+        }
+        return material
+    }
+    
+    func placeObject(
+        named meshName: String = "DefaultMesh",
+        materialName: String = "DefaultMaterial",
+        label: String = "Untitled",
+        color: Color = .blue
+    ) async {
+        // add to this objectsPlaced count
+        objectsPlaced += 1
+        
+        guard let leftFingerPosition = fingerEntities[.left]?.transform.translation else { return }
+        let placementLocation = leftFingerPosition + SIMD3<Float>(0, -0.05, 0)
+        
+        // LOAD MESH
+        var meshResource: MeshResource
+        if meshName == "DefaultMesh" {
+            meshResource = .generateSphere(radius: 0.1)
+        } else {
+            do {
+                let loadedEntity = try await Entity(named: meshName, in: realityKitContentBundle)
+                if let modelEntity = loadedEntity as? ModelEntity, let modelMesh = modelEntity.model?.mesh {
+                    meshResource = modelMesh
+                } else {
+                    print("Failed to extract mesh from \(meshName), using default sphere")
+                    meshResource = .generateSphere(radius: 0.1)
+                }
+            } catch {
+                print("Error loading mesh: \(error), using default sphere")
+                meshResource = .generateSphere(radius: 0.1)
+            }
+        }
+        
+        // LOAD MATERIAL
+        // TODO: Apply color tint to loaded material
+        var material: RealityKit.Material
+        if materialName == "DefaultMaterial" {
+            material = SimpleMaterial(color: UIColor(color), isMetallic: false)
+        } else {
+            do {
+                material = try await extractMaterial(fromUSDNamed: materialName, entityName: "Sphere")
+            } catch {
+                print("Error loading material: \(error), using default blue material")
+                material = SimpleMaterial(color: UIColor(color), isMetallic: false)
+            }
+        }
+        
+        // ADD BASIC OBJECT STUFF
+        let object = ModelEntity(mesh: meshResource, materials: [material])
+        object.setPosition(placementLocation, relativeTo: nil)
+        object.components.set(InputTargetComponent(allowedInputTypes: .indirect))
+        object.generateCollisionShapes(recursive: true)
+        object.components.set(GroundingShadowComponent(castsShadow: true))
+    
+        // Add physics with dynamic mode so it falls onto the table
+        let physicsMaterial = PhysicsMaterialResource.generate(friction: 0.8, restitution: 0.1)
+        object.components.set(
+            PhysicsBodyComponent(
+                shapes: object.collision!.shapes,
+                mass: 10,
+                material: physicsMaterial,
+                mode: .dynamic
+            )
+        )
+        object.physicsBody?.linearDamping = 5.0
+        object.physicsBody?.angularDamping = 5.0
+        
+        // TODO: Implement dragging logic here
+        
+        contentEntity.addChild(object)
+    }
+    
+    
+    //////////////////////////
+    
     
     func imageFromPDF(url: URL) -> UIImage? {
         guard let document = PDFDocument(url: url),
@@ -112,10 +201,10 @@ import PDFKit
             print("Failed to load PDF")
             return nil
         }
-
+        
         let pageRect = page.bounds(for: .mediaBox)
         let renderer = UIGraphicsImageRenderer(size: pageRect.size)
-
+        
         // Create the image with proper orientation
         let image = renderer.image { context in
             // Clear the background with white
@@ -140,88 +229,10 @@ import PDFKit
         return image
     }
     
-    //////////////////////////
-    
-    // Helper function to extract the first material from a ModelEntity inside a USD file
-    func extractMaterial(fromUSDNamed usdName: String, entityName: String) async throws -> RealityKit.Material {
-        let loadedEntity = try await Entity(named: usdName, in: realityKitContentBundle)
-        guard let modelEntity = loadedEntity.findEntity(named: entityName) as? ModelEntity,
-              let material = modelEntity.model?.materials.first else {
-            throw NSError(domain: "MaterialError", code: 1, userInfo: [NSLocalizedDescriptionKey: "Material not found in \(usdName) -> \(entityName)"])
-        }
-        return material
-    }
-    
-    func placeObject(
-        named meshName: String = "DefaultMesh",
-        materialName: String = "DefaultMaterial",
-        label: String = "Untitled",
-        color: Color = .blue
-    ) async {
-        guard let leftFingerPosition = fingerEntities[.left]?.transform.translation else { return }
-        let placementLocation = leftFingerPosition + SIMD3<Float>(0, -0.05, 0)
-
-        // LOAD MESH
-        var meshResource: MeshResource
-        if meshName == "DefaultMesh" {
-            meshResource = .generateSphere(radius: 0.1)
-        } else {
-            do {
-                let loadedEntity = try await Entity(named: meshName, in: realityKitContentBundle)
-                if let modelEntity = loadedEntity as? ModelEntity, let modelMesh = modelEntity.model?.mesh {
-                    meshResource = modelMesh
-                } else {
-                    print("Failed to extract mesh from \(meshName), using default sphere")
-                    meshResource = .generateSphere(radius: 0.1)
-                }
-            } catch {
-                print("Error loading mesh: \(error), using default sphere")
-                meshResource = .generateSphere(radius: 0.1)
-            }
-        }
-
-        // LOAD MATERIAL
-        // TODO: Apply color tint to loaded material
-        var material: RealityKit.Material
-        if materialName == "DefaultMaterial" {
-            material = SimpleMaterial(color: UIColor(color), isMetallic: false)
-        } else {
-            do {
-                material = try await extractMaterial(fromUSDNamed: materialName, entityName: "Sphere")
-            } catch {
-                print("Error loading material: \(error), using default blue material")
-                material = SimpleMaterial(color: UIColor(color), isMetallic: false)
-            }
-        }
-
-        // ADD BASIC OBJECT STUFF
-        let object = ModelEntity(mesh: meshResource, materials: [material])
-        object.setPosition(placementLocation, relativeTo: nil)
-        object.components.set(InputTargetComponent(allowedInputTypes: .indirect))
-        object.generateCollisionShapes(recursive: true)
-        object.components.set(GroundingShadowComponent(castsShadow: true))
-
-        // Add physics with dynamic mode so it falls onto the table
-        let physicsMaterial = PhysicsMaterialResource.generate(friction: 0.8, restitution: 0.1)
-        object.components.set(
-            PhysicsBodyComponent(
-                shapes: object.collision!.shapes,
-                mass: 0.5,
-                material: physicsMaterial,
-                mode: .dynamic
-            )
-        )
-
-        contentEntity.addChild(object)
-    }
-    
-    //////////////////////////
-
-
     func placeFile(named filename: String) async {
         guard let leftFingerPosition = fingerEntities[.left]?.transform.translation else { return }
         let placementLocation = leftFingerPosition + SIMD3<Float>(0, -0.05, 0)
-
+        
         // Load PDF and generate image with corrected orientation
         guard let pdfURL = Bundle.main.url(forResource: filename, withExtension: "pdf"),
               let pdfImage = imageFromPDF(url: pdfURL),
@@ -229,7 +240,7 @@ import PDFKit
             print("PDF processing error")
             return
         }
-
+        
         // Create a texture from the PDF image
         guard let textureResource = try? await TextureResource(image: cgImage, options: .init(semantic: nil)) else {
             print("Texture conversion error")
@@ -269,5 +280,4 @@ import PDFKit
         
         contentEntity.addChild(fileEntity)
     }
-    
 }
