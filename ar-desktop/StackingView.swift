@@ -19,7 +19,7 @@ struct StackingView: View {
             content.add(model.setupContentEntity())
             
         }.task {
-            // run ARKit Session (track environment
+            // run ARKit Session (track environment)
             await model.runSession()
         }.task {
             // process our hand updates
@@ -31,7 +31,7 @@ struct StackingView: View {
             
             Task {
                 // place our cubes
-                await model.placeFile(named: "Affirmations")
+                await model.placeObject(materialName: "Aura", label: "Files", color: .red)
             }
         }))
     }

@@ -17,6 +17,9 @@ struct ar_desktopApp: App {
             ContentView()
 //                .environment(appModel)
         }
+        ImmersiveSpace(id: "AuraSpace") {
+            AuraView()
+        }
 
         ImmersiveSpace(id: "StackingSpace") {
             StackingView()
