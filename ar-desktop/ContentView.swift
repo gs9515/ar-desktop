@@ -29,7 +29,7 @@ struct ContentView: View {
                             .padding(.bottom, 15)
 
                         Text("""
-                            To start stacking the desktop environment, click on the 'Start Desktop' button. Point with your left index finger where you want a entity to spawn. Make a pinching gesture with your right hand to drop the entity.
+                            To start the desktop environment, click on the 'Start Desktop' button. Point with your left index finger where you want a entity to spawn. Make a pinching gesture with your right hand to drop the entity.
 
                             You can place the entities on tables and other surfaces, and also interact with them using your hands!
                             """)
