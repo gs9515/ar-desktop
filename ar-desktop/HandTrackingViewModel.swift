@@ -38,6 +38,65 @@ import PDFKit
     
     
     // FUNCTIONS
+
+    // Reusable floating label function using RealityKit's generateText with background
+    func showLabel(for object: ModelEntity, with text: String, color theColor: UIColor) async {
+        // Generate vector-based text mesh with larger font
+        let textMesh = MeshResource.generateText(
+            text,
+            extrusionDepth: 0.01,
+            font: .systemFont(ofSize: 0.2),
+            containerFrame: .zero,
+            alignment: .center,
+            lineBreakMode: .byWordWrapping
+        )
+        
+        // Create unlit material for clear readability
+        let textMaterial = UnlitMaterial(color: .white)
+        let textEntity = ModelEntity(mesh: textMesh, materials: [textMaterial])
+        textEntity.scale = SIMD3<Float>(repeating: 0.05)
+        
+        // Compute text bounds to size background plane
+        let textBounds = textMesh.bounds.extents
+        let backgroundWidth = textBounds.x * 0.5
+        let backgroundHeight = textBounds.y * 0.3
+        
+        // Create background plane
+        let backgroundMesh = MeshResource.generatePlane(width: backgroundWidth, height: backgroundHeight)
+        let backgroundMaterial = UnlitMaterial(color: theColor)
+        let backgroundEntity = ModelEntity(mesh: backgroundMesh, materials: [backgroundMaterial])
+        if var modelComponent = backgroundEntity.model {
+            modelComponent.mesh = .generatePlane(width: backgroundWidth, height: backgroundHeight, cornerRadius: 0.01)
+            backgroundEntity.model = modelComponent
+        }
+        
+        // Adjust text position to center on background
+        let textCenterOffset = SIMD3<Float>(
+            -textBounds.x * textEntity.scale.x,
+            -textBounds.y * textEntity.scale.y,
+            0.001
+        )
+        textEntity.setPosition(textCenterOffset, relativeTo: backgroundEntity)
+        // Add text as child of background and adjust scale
+        textEntity.scale = SIMD3<Float>(repeating: 0.1)
+        backgroundEntity.addChild(textEntity)
+        
+        backgroundEntity.components.set(BillboardComponent())
+        contentEntity.addChild(backgroundEntity)
+        
+        // Animate label following the object
+        Task {
+            var timeElapsed: UInt64 = 0
+            while timeElapsed < 3_000_000_000 {
+                let objectWorldPos = object.position(relativeTo: nil)
+                let offset = SIMD3<Float>(0, 0.2, 0)
+                backgroundEntity.setPosition(objectWorldPos + offset, relativeTo: nil)
+                try? await Task.sleep(nanoseconds: 33_000_000) // ~30fps
+                timeElapsed += 33_000_000
+            }
+            backgroundEntity.removeFromParent()
+        }
+    }
     
     func setupContentEntity() -> Entity {
         // Add fingertips
@@ -172,7 +231,12 @@ import PDFKit
         object.components.set(InputTargetComponent(allowedInputTypes: .indirect))
         object.generateCollisionShapes(recursive: true)
         object.components.set(GroundingShadowComponent(castsShadow: true))
-    
+        
+        // Example usage: Show label when object is placed
+        Task {
+            await showLabel(for: object, with: label, color: UIColor(color).withAlphaComponent(0.5))
+        }
+
         // Add physics with dynamic mode so it falls onto the table
         let physicsMaterial = PhysicsMaterialResource.generate(friction: 0.8, restitution: 0.1)
         object.components.set(
@@ -186,7 +250,8 @@ import PDFKit
         object.physicsBody?.linearDamping = 5.0
         object.physicsBody?.angularDamping = 5.0
         
-        // TODO: Implement dragging logic here
+        // add hover glisten effect
+        object.components.set(HoverEffectComponent())
         
         contentEntity.addChild(object)
     }
@@ -280,4 +345,9 @@ import PDFKit
         
         contentEntity.addChild(fileEntity)
     }
+    
+    // Example gaze detection trigger:
+//    func onGaze(at object: ModelEntity, label: String) async {
+//         await showLabel(for: object, with: label)
+//    }
 }
