@@ -24,20 +24,20 @@ struct ContentView: View {
             ZStack {
                 HStack(spacing: 60) {
                     VStack(alignment: .center, spacing: 0) {  // Ensure center alignment
-                        Text("Vision Stack Pro")
+                        Text("AR Desktop")
                             .font(.system(size: 50, weight: .bold))
                             .padding(.bottom, 15)
 
                         Text("""
-                            To start stacking cubes, click on the 'Start Stacking' button. Point with your left index finger where you want a cube to spawn. Make a pinching gesture with your right hand to drop a cube.
+                            To start stacking the desktop environment, click on the 'Start Desktop' button. Point with your left index finger where you want a entity to spawn. Make a pinching gesture with your right hand to drop the entity.
 
-                            You can place the cubes on tables and other surfaces, and also interact with them using your hands!
+                            You can place the entities on tables and other surfaces, and also interact with them using your hands!
                             """)
                             .multilineTextAlignment(.center)  // Ensures text is centered
                             .padding(.bottom, 30)
                             .accessibilitySortPriority(3)
 
-                        Toggle(showImmersiveSpace ? "Stop Stacking" : "Start Stacking", isOn: $showImmersiveSpace)
+                        Toggle(showImmersiveSpace ? "Stop Desktop" : "Start Desktop", isOn: $showImmersiveSpace)
                             .onChange(of: showImmersiveSpace) { _, isShowing in
                                 Task {
                                     if isShowing {

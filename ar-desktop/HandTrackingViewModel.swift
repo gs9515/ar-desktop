@@ -52,13 +52,13 @@ import PDFKit
         )
         
         // Create unlit material for clear readability
-        let textMaterial = UnlitMaterial(color: .white)
+        let textMaterial = UnlitMaterial(color: .black)
         let textEntity = ModelEntity(mesh: textMesh, materials: [textMaterial])
         textEntity.scale = SIMD3<Float>(repeating: 0.05)
         
         // Compute text bounds to size background plane
         let textBounds = textMesh.bounds.extents
-        let backgroundWidth = textBounds.x * 0.5
+        let backgroundWidth = textBounds.x * 0.2
         let backgroundHeight = textBounds.y * 0.3
         
         // Create background plane
@@ -181,7 +181,7 @@ import PDFKit
     }
     
     func placeObject(
-        named meshName: String = "DefaultMesh",
+        meshName: String = "DefaultMesh",
         materialName: String = "DefaultMaterial",
         label: String = "Untitled",
         color: Color = .blue
@@ -199,7 +199,10 @@ import PDFKit
         } else {
             do {
                 let loadedEntity = try await Entity(named: meshName, in: realityKitContentBundle)
-                if let modelEntity = loadedEntity as? ModelEntity, let modelMesh = modelEntity.model?.mesh {
+                print("Loaded entity hierarchy for \(meshName):")
+
+                if let modelEntity = loadedEntity.children.recursiveCompactMap({ $0 as? ModelEntity }).first,
+                   let modelMesh = modelEntity.model?.mesh {
                     meshResource = modelMesh
                 } else {
                     print("Failed to extract mesh from \(meshName), using default sphere")
@@ -212,7 +215,6 @@ import PDFKit
         }
         
         // LOAD MATERIAL
-        // TODO: Apply color tint to loaded material
         var material: RealityKit.Material
         if materialName == "DefaultMaterial" {
             material = SimpleMaterial(color: UIColor(color), isMetallic: false)
@@ -227,11 +229,12 @@ import PDFKit
         
         // ADD BASIC OBJECT STUFF
         let object = ModelEntity(mesh: meshResource, materials: [material])
+//        object.scale = SIMD3<Float>(repeating: 0.1) // Or any small factor
         object.setPosition(placementLocation, relativeTo: nil)
         object.components.set(InputTargetComponent(allowedInputTypes: .indirect))
         object.generateCollisionShapes(recursive: true)
         object.components.set(GroundingShadowComponent(castsShadow: true))
-        
+
         // Example usage: Show label when object is placed
         Task {
             await showLabel(for: object, with: label, color: UIColor(color).withAlphaComponent(0.5))
@@ -350,4 +353,17 @@ import PDFKit
 //    func onGaze(at object: ModelEntity, label: String) async {
 //         await showLabel(for: object, with: label)
 //    }
+}
+
+extension Collection where Element == Entity {
+    func recursiveCompactMap<T>(_ transform: (Entity) -> T?) -> [T] {
+        var result: [T] = []
+        for entity in self {
+            if let transformed = transform(entity) {
+                result.append(transformed)
+            }
+            result.append(contentsOf: entity.children.recursiveCompactMap(transform))
+        }
+        return result
+    }
 }
