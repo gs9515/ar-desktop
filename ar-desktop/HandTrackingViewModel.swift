@@ -197,7 +197,7 @@ import PDFKit
         // LOAD MESH
         var meshResource: MeshResource
         if meshName == "DefaultMesh" {
-            meshResource = .generateSphere(radius: 0.1)
+            meshResource = .generateSphere(radius: 0.075)
         } else {
             do {
                 let loadedEntity = try await Entity(named: meshName, in: realityKitContentBundle)
@@ -208,11 +208,11 @@ import PDFKit
                     meshResource = modelMesh
                 } else {
                     print("Failed to extract mesh from \(meshName), using default sphere")
-                    meshResource = .generateSphere(radius: 0.1)
+                    meshResource = .generateSphere(radius: 0.075)
                 }
             } catch {
                 print("Error loading mesh: \(error), using default sphere")
-                meshResource = .generateSphere(radius: 0.1)
+                meshResource = .generateSphere(radius: 0.075)
             }
         }
         
@@ -394,6 +394,7 @@ import PDFKit
         }
         
         
+        
         // Now, add all the files in files to the highlight area
         // We'll arrange the file icons in a grid within the highlight area
         //        let fileYAbovePlane: Float = 0.002  // Slightly above table plane
@@ -435,6 +436,31 @@ import PDFKit
             fileEntity.components.set(GroundingShadowComponent(castsShadow: true))
             fileEntity.components.set(HoverEffectComponent())
             
+            // Add preview image if present
+//            if let previewName = fileDict["fileLocation"],
+//               let image = UIImage(named: previewName),
+//               let cgImage = image.cgImage,
+//               let textureResource = try? await TextureResource(image: cgImage, options: .init(semantic: nil)) {
+//                var previewMaterial = UnlitMaterial()
+//                previewMaterial.color = .init(tint: .white, texture: .init(textureResource))
+//    
+//                let previewPlane = ModelEntity(
+//                    mesh: .generatePlane(width: 0.075, height: 0.075),
+//                    materials: [previewMaterial]
+//                )
+//                print("Preview image \(previewName) loaded and added to fileEntity")
+//                
+//                // Position the preview plane so its bottom edge aligns with the top face of the file box
+//                // The file box is 0.002 tall and centered at 0, so its top face is at y = 0.001
+//                // By setting the preview plane's position to (0, 0.001, 0) relative to fileEntity,
+//                // and rotating it so that its front face points upward, we align it correctly
+//                previewPlane.setPosition(SIMD3<Float>(0, 0.001, 0), relativeTo: fileEntity)
+//                previewPlane.transform.rotation = simd_quatf(angle: Float.pi/2, axis: SIMD3<Float>(1, 0, 0))
+//    
+//                fileEntity.addChild(previewPlane)
+//            }
+            
+            
             // Add label if present
             if let fileLabel = fileDict["label"] {
                 Task {
@@ -446,17 +472,17 @@ import PDFKit
         }
         
         // Add a close button to remove the group
-        let closeButtonSize: Float = 0.05
-        let closeButtonMesh = MeshResource.generatePlane(width: closeButtonSize, height: closeButtonSize)
-        let closeButtonMaterial = SimpleMaterial(color: .red, isMetallic: false)
-        let closeButtonEntity = ModelEntity(mesh: closeButtonMesh, materials: [closeButtonMaterial])
-        closeButtonEntity.setPosition(
-            SIMD3<Float>(highlightWidth / 2 - closeButtonSize / 2, 0.001, highlightDepth / 2 - closeButtonSize / 2),
-            relativeTo: highlightEntity
-        )
-        closeButtonEntity.components.set(InputTargetComponent())
-        // TODO: Attach interaction to remove currentGroupEntity when tapped
-        highlightEntity.addChild(closeButtonEntity)
+//        let closeButtonSize: Float = 0.05
+//        let closeButtonMesh = MeshResource.generatePlane(width: closeButtonSize, height: closeButtonSize)
+//        let closeButtonMaterial = SimpleMaterial(color: .red, isMetallic: false)
+//        let closeButtonEntity = ModelEntity(mesh: closeButtonMesh, materials: [closeButtonMaterial])
+//        closeButtonEntity.setPosition(
+//            SIMD3<Float>(highlightWidth / 2 - closeButtonSize / 2, 0.001, highlightDepth / 2 - closeButtonSize / 2),
+//            relativeTo: highlightEntity
+//        )
+//        closeButtonEntity.components.set(InputTargetComponent())
+//        // TODO: Attach interaction to remove currentGroupEntity when tapped
+//        highlightEntity.addChild(closeButtonEntity)
     }
     
     

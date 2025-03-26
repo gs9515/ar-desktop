@@ -87,11 +87,11 @@ struct StackingView: View {
     @State var currentIndex = 0
     @State var objectsToPlace: [ObjectData] = [
         ObjectData(materialName: "Red", label: "Communication", color: hexStringToUIColor(hex: "#FF4D0D"), files: [
-            File(label: "Messages", fileType: "application", fileLocation: "/src/spotify"),
-            File(label: "WhatsApp", fileType: "application", fileLocation: "/src/spotify"),
-            File(label: "Mail", fileType: "application", fileLocation: "src/mail"),
-            File(label: "Letter from Mom", fileType: "pdf", fileLocation: "src/mom_letter.pdf"),
-            File(label: "Letter from Bobby", fileType: "pdf", fileLocation: "src/bobby_letter.pdf")
+            File(label: "Messages", fileType: "application", fileLocation: "messages.png"),
+            File(label: "WhatsApp", fileType: "application", fileLocation: "whatsapp.png"),
+            File(label: "Mail", fileType: "application", fileLocation: "mail.png"),
+            File(label: "Letter from Mom", fileType: "pdf", fileLocation: "notes.png"),
+            File(label: "Letter from Bobby", fileType: "pdf", fileLocation: "notes.png")
         ]),
         ObjectData(materialName: "Yellow", label: "Office", color: hexStringToUIColor(hex:"#F4FE04"), files: [
             File(label: "Word", fileType: "application", fileLocation: "/src/word"),
@@ -139,7 +139,7 @@ struct StackingView: View {
                         let data = objectsToPlace[currentIndex]
                         // Assume that placeObject now returns an optional ModelEntity
                         if let entity = await model.placeObject(
-                            meshName: "Domed_Cylinder",
+//                            meshName: "Domed_Cylinder",
                             materialName: data.materialName,
                             label: data.label,
                             color: data.color
