@@ -14,7 +14,47 @@ struct ObjectData {
     var materialName: String
     var label: String
     var color: Color
+    var files: [File]
 }
+
+// Define your custom file type (optional, for a more Swifty approach)
+struct File {
+    var label: String
+    var fileType: String
+    var fileLocation: String
+}
+
+// Custom subclass to store extra metadata
+struct CustomMetadata {
+    let label: String
+    let color: Color
+    let materialName: String
+    let files: [File]
+}
+
+// Custom component to attach metadata to ModelEntity
+struct CustomMetadataComponent: Component {
+    var metadata: CustomMetadata
+}
+
+extension ModelEntity {
+    var customMetadata: CustomMetadata? {
+        get {
+            if let component = self.components[CustomMetadataComponent.self] {
+                return component.metadata
+            }
+            return nil
+        }
+        set {
+            if let newMetadata = newValue {
+                self.components.set(CustomMetadataComponent(metadata: newMetadata))
+            } else {
+                self.components.remove(CustomMetadataComponent.self)
+            }
+        }
+    }
+}
+
 
 func hexStringToUIColor (hex:String) -> Color {
     var cString:String = hex.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
@@ -40,25 +80,47 @@ func hexStringToUIColor (hex:String) -> Color {
 
 struct StackingView: View {
     @StateObject var model = HandTrackingViewModel()
+    @State private var didRunSetup = false
+
     
     // Data structure and index for the next object(s) to palce
     @State var currentIndex = 0
     @State var objectsToPlace: [ObjectData] = [
-        ObjectData(materialName: "Red", label: "Communication", color: hexStringToUIColor(hex:"#FF4D0D")),
-        ObjectData(materialName: "Yellow", label: "Office", color: hexStringToUIColor(hex:"#F4FE04")),
-        ObjectData(materialName: "Green", label: "Browsers", color: hexStringToUIColor(hex:"#2ABB5D")),
-        ObjectData(materialName: "Blue", label: "Memories", color: hexStringToUIColor(hex:"#5074FD")),
-        ObjectData(materialName: "Purple", label: "Documents", color: hexStringToUIColor(hex:"#AE69FB")),
+        ObjectData(materialName: "Red", label: "Communication", color: hexStringToUIColor(hex: "#FF4D0D"), files: [
+            File(label: "Messages", fileType: "application", fileLocation: "/src/spotify"),
+            File(label: "WhatsApp", fileType: "application", fileLocation: "/src/spotify"),
+            File(label: "Mail", fileType: "application", fileLocation: "src/mail"),
+            File(label: "Letter from Mom", fileType: "pdf", fileLocation: "src/mom_letter.pdf"),
+            File(label: "Letter from Bobby", fileType: "pdf", fileLocation: "src/bobby_letter.pdf")
+        ]),
+        ObjectData(materialName: "Yellow", label: "Office", color: hexStringToUIColor(hex:"#F4FE04"), files: [
+            File(label: "Word", fileType: "application", fileLocation: "/src/word"),
+        ]),
+        ObjectData(materialName: "Green", label: "Browsers", color: hexStringToUIColor(hex:"#2ABB5D"), files: [
+            File(label: "Chrome", fileType: "application", fileLocation: "/src/chrome"),
+        ]),
+        ObjectData(materialName: "Blue", label: "Memories", color: hexStringToUIColor(hex:"#5074FD"), files: [
+            File(label: "Dad", fileType: "photo", fileLocation: "/src/dad.jpg"),
+        ]),
+        ObjectData(materialName: "Purple", label: "Documents", color: hexStringToUIColor(hex:"#AE69FB"), files: [
+            File(label: "Independent Work Proposal", fileType: "file", fileLocation: "/src/iw_prop.pdf"),
+        ]),
     ]
-
-    
     
     var body: some View {
         RealityView { content in
             // add our content entity (holds cube and fingertips)
             content.add(model.setupContentEntity())
             
-        }.task {
+      }.onAppear {
+            if !didRunSetup {
+                Task {
+                    await model.collectDesktopCenterOnPinch() // Your one-time function
+                    didRunSetup = true
+                }
+            }
+        }
+        .task {
             // run ARKit Session (track environment)
             await model.runSession()
         }.task {
@@ -75,12 +137,23 @@ struct StackingView: View {
                 .onEnded({ value in
                     Task {
                         let data = objectsToPlace[currentIndex]
-                        await model.placeObject(
-//                            meshName: "Domed_Cylinder",
+                        // Assume that placeObject now returns an optional ModelEntity
+                        if let entity = await model.placeObject(
+                            meshName: "Domed_Cylinder",
                             materialName: data.materialName,
                             label: data.label,
                             color: data.color
-                        )
+                        ) {
+                            // Associate custom metadata with the placed entity
+                            entity.customMetadata = CustomMetadata(
+                                label: data.label,
+                                color: data.color,
+                                materialName: data.materialName,
+                                files: data.files // Replace with actual files if available
+                            )
+                        }
+                        
+                        // Add to the index
                         currentIndex += 1
                     }
                 }) : nil
@@ -91,6 +164,25 @@ struct StackingView: View {
                 .onChanged { value in
                     if let entity = value.entity as? ModelEntity {
                         entity.position = value.convert(value.location3D, from: .local, to: entity.parent!)
+                    }
+                }
+        )
+        .simultaneousGesture(
+            SpatialTapGesture()
+                .targetedToAnyEntity()
+                .onEnded { value in
+                    // Check if the tapped entity has custom metadata attached
+                    if let entity = value.entity as? ModelEntity, let metadata = entity.customMetadata {
+                        Task {
+                            await model.openGroup(label: metadata.label,
+                                                    color: metadata.color,
+                                                    materialName: metadata.materialName,
+                                                    files: metadata.files.map { [
+                                                        "label": $0.label,
+                                                        "fileType": $0.fileType,
+                                                        "fileLocation": $0.fileLocation
+                                                    ] })
+                        }
                     }
                 }
         )
