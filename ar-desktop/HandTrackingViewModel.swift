@@ -361,32 +361,10 @@ import PDFKit
         }
         
         let highlightEntity = ModelEntity(mesh: highlightMesh, materials: [material])
-        
-        //         Position the highlight entity on the table surface, slightly above it
-        // (idk, z, forward/back)
-        //        let offset = SIMD3<Float>(-1/6, -highlightWidth/2-0.05, -highlightWidth/5)
-        //        let offset = SIMD3<Float>(1/5, -highlightWidth/2-0.05, -highlightWidth/7)
         highlightEntity.setPosition(desktopCenter, relativeTo: nil)
         highlightEntity.generateCollisionShapes(recursive: true)
         highlightEntity.components.set(PhysicsBodyComponent(mode: .static))
-        //        let xyAdjustment = simd_quatf(angle: Float.pi/25, axis: SIMD3<Float>(0, 0, 1))
-        //        highlightEntity.transform.rotation = desktopCenter.transform.rotation
-        // Align the highlight entity (billboard) to always face the user using RealityKit's BillboardComponent
-        //        highlightEntity.components.set(BillboardComponent())
-        
-        
-        //        let offset = SIMD3<Float>(0, 0.01, 0)
-        //        highlightEntity.setPosition(tablePosition + offset, relativeTo: nil)
-        
-        
-        // Save the current group entity so we can later close it if needed
-        currentGroupEntity = highlightEntity
-        
-        // Add the highlight to the main content entity so it becomes visible in the scene
         contentEntity.addChild(highlightEntity)
-        
-        print("Open group placed at table position: \(desktopCenter)")
-        
         
         // Add a label above this highlight, also along the table -- the background can be of color color
         Task {
@@ -410,13 +388,15 @@ import PDFKit
             let cellDepth = highlightDepth / Float(rows)
             let xOffset = (Float(col) - Float(columns - 1) / 2) * cellWidth
             let zOffset = (Float(row) - Float(rows - 1) / 2) * cellDepth
-            let filePosition = SIMD3<Float>(xOffset, -0.75+0.1, zOffset+0.5-0.001)
+
+            
+//            let filePosition = SIMD3<Float>(xOffset, -0.75+0.1, zOffset+0.5-0.001)
+            let filePosition = SIMD3<Float>(xOffset, 0.02, zOffset) // Simple, consistent offset above the plane
             
             let fileMesh = MeshResource.generateBox(size: SIMD3<Float>(0.08, 0.002, 0.08))
             let fileMaterial = SimpleMaterial(color: .gray, isMetallic: true)
             let fileEntity = ModelEntity(mesh: fileMesh, materials: [fileMaterial])
-            fileEntity.setPosition(filePosition + desktopCenter, relativeTo: nil)
-            fileEntity.transform.rotation = simd_quatf()
+//            fileEntity.setPosition(filePosition + desktopCenter, relativeTo: nil)
             
             // Enable input and physics
             fileEntity.components.set(InputTargetComponent(allowedInputTypes: .indirect))
@@ -437,29 +417,36 @@ import PDFKit
             fileEntity.components.set(HoverEffectComponent())
             
             // Add preview image if present
-//            if let previewName = fileDict["fileLocation"],
-//               let image = UIImage(named: previewName),
-//               let cgImage = image.cgImage,
-//               let textureResource = try? await TextureResource(image: cgImage, options: .init(semantic: nil)) {
-//                var previewMaterial = UnlitMaterial()
-//                previewMaterial.color = .init(tint: .white, texture: .init(textureResource))
-//    
-//                let previewPlane = ModelEntity(
-//                    mesh: .generatePlane(width: 0.075, height: 0.075),
-//                    materials: [previewMaterial]
-//                )
-//                print("Preview image \(previewName) loaded and added to fileEntity")
-//                
-//                // Position the preview plane so its bottom edge aligns with the top face of the file box
-//                // The file box is 0.002 tall and centered at 0, so its top face is at y = 0.001
-//                // By setting the preview plane's position to (0, 0.001, 0) relative to fileEntity,
-//                // and rotating it so that its front face points upward, we align it correctly
+            if let previewName = fileDict["fileLocation"],
+               let image = UIImage(named: previewName),
+               let cgImage = image.cgImage,
+               let textureResource = try? await TextureResource(image: cgImage, options: .init(semantic: nil)) {
+                var previewMaterial = UnlitMaterial()
+                previewMaterial.color = .init(tint: .white, texture: .init(textureResource))
+    
+                let previewPlane = ModelEntity(
+                    mesh: .generatePlane(width: 0.075, height: 0.075),
+                    materials: [previewMaterial]
+                )
+                print("Preview image \(previewName) loaded and added to fileEntity")
+                fileEntity.addChild(previewPlane)
+                
+                // Position the preview plane so its bottom edge aligns with the top face of the file box
+                // The file box is 0.002 tall and centered at 0, so its top face is at y = 0.001
+                // By setting the preview plane's position to (0, 0.001, 0) relative to fileEntity,
+                // and rotating it so that its front face points upward, we align it correctly
 //                previewPlane.setPosition(SIMD3<Float>(0, 0.001, 0), relativeTo: fileEntity)
-//                previewPlane.transform.rotation = simd_quatf(angle: Float.pi/2, axis: SIMD3<Float>(1, 0, 0))
-//    
-//                fileEntity.addChild(previewPlane)
-//            }
-            
+//                previewPlane.transform.rotation = simd_quatf(angle: -Float.pi/2, axis: SIMD3<Float>(1, 0, 0))
+                // Position the preview directly above the file box with a small offset
+                let previewOffset = SIMD3<Float>(0, 0.005, 0) // 5mm above the file box
+                previewPlane.setPosition(previewOffset, relativeTo: fileEntity)
+
+                // Make sure the preview faces upward
+                let upwardRotation = simd_quatf(angle: -Float.pi/2, axis: SIMD3<Float>(1, 0, 0))
+                previewPlane.transform.rotation = upwardRotation
+    
+                
+            }
             
             // Add label if present
             if let fileLabel = fileDict["label"] {
@@ -469,6 +456,9 @@ import PDFKit
             }
             
             highlightEntity.addChild(fileEntity)
+            
+            fileEntity.setPosition(filePosition, relativeTo: highlightEntity) // Position relative to the highlight, not world space
+            fileEntity.transform.rotation = simd_quatf()
         }
         
         // Add a close button to remove the group
