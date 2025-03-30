@@ -28,32 +28,32 @@ struct FileMetadataComponent: Component {
     var fileLocation: String
 }
 
-struct VirtualFileView: View {
-    let label: String
-    let fileType: String
-    let fileLocation: String
-
-    var body: some View {
-        ZStack {
-            Color(.systemBackground)
-                .opacity(0.8)
-                .cornerRadius(12)
-            VStack(spacing: 20) {
-                Text("File Viewer")
-                    .font(.title)
-                    .padding(.top)
-                Text("Label: \(label)")
-                Text("Type: \(fileType)")
-                Button("Close") {
-                    // Add dismiss logic
-                }
-                .padding(.bottom)
-            }
-            .padding()
-        }
-        .frame(width: 300, height: 400)
-        .shadow(radius: 10)
-    }}
+//struct VirtualFileView: View {
+//    let label: String
+//    let fileType: String
+//    let fileLocation: String
+//
+//    var body: some View {
+//        ZStack {
+//            Color(.systemBackground)
+//                .opacity(0.8)
+//                .cornerRadius(12)
+//            VStack(spacing: 20) {
+//                Text("File Viewer")
+//                    .font(.title)
+//                    .padding(.top)
+//                Text("Label: \(label)")
+//                Text("Type: \(fileType)")
+//                Button("Close") {
+//                    // Add dismiss logic
+//                }
+//                .padding(.bottom)
+//            }
+//            .padding()
+//        }
+//        .frame(width: 300, height: 400)
+//        .shadow(radius: 10)
+//    }}
 
 @MainActor class HandTrackingViewModel: ObservableObject {
     @Published var objectsPlaced: Int = 0
@@ -120,7 +120,7 @@ struct VirtualFileView: View {
         let backgroundHeight = textBounds.y * 0.3
         
         let transparentColor = theColor.withAlphaComponent(0.0)
-        var backgroundMaterial = SimpleMaterial(color: transparentColor, isMetallic: false)
+        let backgroundMaterial = SimpleMaterial(color: transparentColor, isMetallic: false)
         let backgroundEntity = ModelEntity(
             mesh: .generatePlane(width: backgroundWidth, height: backgroundHeight, cornerRadius: 0.01),
             materials: [backgroundMaterial]
@@ -608,7 +608,7 @@ struct VirtualFileView: View {
                model.previewedFile = newPreview
                // Window is already open — content will update if .id() is used in the view
             } else {
-//               print("⏸ Same file tapped again — no change")
+                // print("⏸ Same file tapped again — no change")
             }
         }
     }

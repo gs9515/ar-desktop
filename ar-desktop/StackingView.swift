@@ -199,8 +199,8 @@ struct StackingView: View {
                 }
         )
         .onDisappear {
-            print("📦 StackingView disappeared — cleaning up preview window")
-            appModel.previewedFile = nil // ✅ Dismiss preview window
+//            print("📦 StackingView disappeared — cleaning up preview window")
+            appModel.previewedFile = nil
             dismissWindow(id: "FilePreview")
         }
     }

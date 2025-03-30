@@ -41,13 +41,13 @@ struct PreviewWindowHostView: View {
     var body: some View {
         Group {
             if let file = appModel.previewedFile {
-                VirtualFileView(
+                FilePreviewView( // ✅ swap in the real dynamic view
                     label: file.label,
                     fileType: file.fileType,
                     fileLocation: file.fileLocation
                 )
                 .transition(.opacity)
-                .id(file.label + file.fileLocation) // optional force-refresh
+                .id(file.label + file.fileLocation)
             } else {
                 Text("No file selected.")
                     .frame(width: 300, height: 200)
