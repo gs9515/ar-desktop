@@ -28,16 +28,30 @@ struct ar_desktopApp: App {
         
         // 👉 Secondary window for file preview
         WindowGroup(id: "FilePreview") {
+            PreviewWindowHostView()
+                .environmentObject(appModel)
+        }
+        .windowStyle(.plain) // ✅ default system window chrome with close/position bar
+    }
+}
+
+struct PreviewWindowHostView: View {
+    @EnvironmentObject var appModel: AppModel
+
+    var body: some View {
+        Group {
             if let file = appModel.previewedFile {
                 VirtualFileView(
                     label: file.label,
                     fileType: file.fileType,
                     fileLocation: file.fileLocation
                 )
-                .environmentObject(appModel)
+                .transition(.opacity)
+                .id(file.label + file.fileLocation) // optional force-refresh
+            } else {
+                Text("No file selected.")
+                    .frame(width: 300, height: 200)
             }
         }
-        .windowStyle(.plain) // ✅ default system window chrome with close/position bar
     }
 }
-

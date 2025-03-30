@@ -44,9 +44,8 @@ struct VirtualFileView: View {
                     .padding(.top)
                 Text("Label: \(label)")
                 Text("Type: \(fileType)")
-                // You can add a preview image or other file details here.
                 Button("Close") {
-                    // Implement your dismiss logic here.
+                    // Add dismiss logic
                 }
                 .padding(.bottom)
             }
@@ -54,14 +53,15 @@ struct VirtualFileView: View {
         }
         .frame(width: 300, height: 400)
         .shadow(radius: 10)
-    }
-}
+    }}
 
 @MainActor class HandTrackingViewModel: ObservableObject {
     @Published var objectsPlaced: Int = 0
     @Published var desktopCenter: SIMD3<Float> = SIMD3<Float>(0, 0, 0)
     @Published var appModel: AppModel? // Inject this from the view
     @Published var openWindowAction: ((String) -> Void)? = nil
+    @Published var openWindowWithTransform: ((String, Transform) -> Void)? = nil
+    @Published var dismissWindowAction: ((String) -> Void)? = nil
 
     // Hand tracking
     private let session = ARKitSession()
@@ -444,6 +444,10 @@ struct VirtualFileView: View {
             currentGroupEntity?.removeFromParent()
             currentGroupEntity = nil
             
+            // Dismiss file preview if open
+            appModel?.previewedFile = nil
+            dismissWindowAction?("FilePreview")
+            
             // Create a highlight entity as a plane (dimensions 4 x 5 units) for now;
             // later, you can modify this to generate an oval shape
             let highlightWidth: Float = 2.5/6
@@ -587,14 +591,24 @@ struct VirtualFileView: View {
             if let labelComponent = currentGroupEntity?.components[LabelComponent.self] {
                 await showLabel(for: currentGroupEntity as! ModelEntity, with: labelComponent.text, color: labelComponent.color, height: 0.1)
             }
-        } else {
-            // ⬇️ RIGHT HAND → Open the preview window
-            if let model = appModel {
-                print("📂 Opening file window for: \(label)")
-                model.previewedFile = AppModel.FilePreviewInfo(label: label, fileType: fileType, fileLocation: fileLocation)
+        }  else {
+            // ✅ RIGHT HAND — trigger preview update
+            guard let model = appModel else { return }
 
-                // Open or reposition the preview window
-                openWindowAction?("FilePreview")
+            let newPreview = AppModel.FilePreviewInfo(
+               label: label,
+               fileType: fileType,
+               fileLocation: fileLocation
+            )
+
+            if model.previewedFile == nil {
+               model.previewedFile = newPreview
+               openWindowAction?("FilePreview")
+            } else if model.previewedFile != newPreview {
+               model.previewedFile = newPreview
+               // Window is already open — content will update if .id() is used in the view
+            } else {
+//               print("⏸ Same file tapped again — no change")
             }
         }
     }
