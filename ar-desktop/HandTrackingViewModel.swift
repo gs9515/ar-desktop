@@ -271,7 +271,6 @@ import Combine
         
         
         contentEntity.addChild(object)
-//        object.scale = SIMD3<Float>(repeating: 0.1) // Or any small factor
         object.setPosition(placementLocation, relativeTo: nil)
         object.components.set(InputTargetComponent(allowedInputTypes: .indirect))
         object.generateCollisionShapes(recursive: true)
@@ -457,153 +456,15 @@ import Combine
     }
     
     
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
     //////////////////////////
     
-    
-    func imageFromPDF(url: URL) -> UIImage? {
-        guard let document = PDFDocument(url: url),
-              let page = document.page(at: 0) else {
-            print("Failed to load PDF")
-            return nil
-        }
-        
-        let pageRect = page.bounds(for: .mediaBox)
-        let renderer = UIGraphicsImageRenderer(size: pageRect.size)
-        
-        // Create the image with proper orientation
-        let image = renderer.image { context in
-            // Clear the background with white
-            UIColor.white.set()
-            context.fill(pageRect)
-            
-            // Save the graphics state
-            context.cgContext.saveGState()
-            
-            // Flip the context vertically to correct the orientation
-            // PDFs have origin at bottom-left, UIKit has origin at top-left
-            context.cgContext.translateBy(x: 0, y: pageRect.size.height)
-            context.cgContext.scaleBy(x: 1.0, y: -1.0)
-            
-            // Draw the PDF page in the properly transformed context
-            page.draw(with: .mediaBox, to: context.cgContext)
-            
-            // Restore the graphics state
-            context.cgContext.restoreGState()
-        }
-        
-        return image
-    }
-    
-    func placeFile(named filename: String) async {
-        guard let leftFingerPosition = fingerEntities[.left]?.transform.translation else { return }
-        let placementLocation = leftFingerPosition + SIMD3<Float>(0, -0.05, 0)
-        
-        // Load PDF and generate image with corrected orientation
-        guard let pdfURL = Bundle.main.url(forResource: filename, withExtension: "pdf"),
-              let pdfImage = imageFromPDF(url: pdfURL),
-              let cgImage = pdfImage.cgImage else {
-            print("PDF processing error")
-            return
-        }
-        
-        // Create a texture from the PDF image
-        guard let textureResource = try? await TextureResource(image: cgImage, options: .init(semantic: nil)) else {
-            print("Texture conversion error")
-            return
-        }
-        
-        var textMaterial = UnlitMaterial()
-        textMaterial.color = .init(tint: .white, texture: .init(textureResource))
-        
-        // Match box proportions to PDF aspect
-        let imageSize = pdfImage.size
-        let aspectRatio = imageSize.height / imageSize.width
-        let desiredWidth: Float = 0.2
-        let desiredHeight: Float = desiredWidth * Float(aspectRatio)
-        
-        // "Paper" box
-        let fileEntity = ModelEntity(
-            mesh: .generateBox(size: SIMD3<Float>(desiredWidth, 0.002, desiredHeight)),
-            materials: [SimpleMaterial(color: .white, isMetallic: false)],
-            collisionShape: .generateBox(size: SIMD3<Float>(desiredWidth, 0.002, desiredHeight)),
-            mass: 1.0
-        )
-        fileEntity.setPosition(placementLocation, relativeTo: nil)
-        
-        // PDF plane
-        let textPlane = ModelEntity(
-            mesh: .generatePlane(width: desiredWidth, height: desiredHeight),
-            materials: [textMaterial]
-        )
-        fileEntity.addChild(textPlane)
-        
-        // Position the plane slightly above the top face of the box
-        textPlane.setPosition(SIMD3<Float>(0, 0.0011, 0), relativeTo: fileEntity)
-        
-        // Rotate the plane to face upward
-        textPlane.transform.rotation = simd_quatf(angle: -Float.pi/2, axis: SIMD3<Float>(1, 0, 0))
-        
-        contentEntity.addChild(fileEntity)
-    }
-    
-//     Example gaze detection trigger:
-//    func onGaze(at object: ModelEntity, label: String) async {
-//         await showLabel(for: object, with: label)
-//    }
-//
-//    func collectDesktopCenterOnPinch() async -> SIMD3<Float>? {
-//        for await update in handTracking.anchorUpdates {
-//            let handAnchor = update.anchor
-//            guard handAnchor.isTracked, handAnchor.chirality == .right else { continue }
-//
-//            let thumbTip = handAnchor.handSkeleton?.joint(.thumbTip)
-//            let indexTip = handAnchor.handSkeleton?.joint(.indexFingerTip)
-//
-//            if let thumb = thumbTip, let index = indexTip,
-//               thumb.isTracked, index.isTracked {
-//                let thumbPos = simd_make_float3(handAnchor.originFromAnchorTransform * thumb.anchorFromJointTransform.columns.3)
-//                let indexPos = simd_make_float3(handAnchor.originFromAnchorTransform * index.anchorFromJointTransform.columns.3)
-//
-//                let distance = simd_distance(thumbPos, indexPos)
-//                if distance < 0.02 { // Pinch detected
-//                    if let leftFingerTip = fingerEntities[.left]?.transform.translation {
-//                        print("✅ Desktop center set at: \(leftFingerTip)")
-//                        return leftFingerTip
-//                    }
-//                }
-//            }
-//        }
-//        return nil
-//    }
-    
     func collectDesktopCenterOnPinch() async -> SIMD3<Float>? {
-        try? await Task.sleep(nanoseconds: 500_000_000) // 0.5-second delay before starting
-        let timeout: UInt64 = 2_000_000_000  // 2 seconds in nanoseconds
-        let interval: UInt64 = 100_000_000   // check every 0.1 second
+        // 0.5-second delay before starting
+        try? await Task.sleep(nanoseconds: 500_000_000)
+        // 2 seconds in nanoseconds
+        let timeout: UInt64 = 2_000_000_000
+        // check every 0.1 second
+        let interval: UInt64 = 100_000_000
         var elapsed: UInt64 = 0
 
         while elapsed < timeout {
@@ -634,3 +495,124 @@ extension Collection where Element == Entity {
         return result
     }
 }
+
+
+
+
+//func imageFromPDF(url: URL) -> UIImage? {
+//    guard let document = PDFDocument(url: url),
+//          let page = document.page(at: 0) else {
+//        print("Failed to load PDF")
+//        return nil
+//    }
+//    
+//    let pageRect = page.bounds(for: .mediaBox)
+//    let renderer = UIGraphicsImageRenderer(size: pageRect.size)
+//    
+//    // Create the image with proper orientation
+//    let image = renderer.image { context in
+//        // Clear the background with white
+//        UIColor.white.set()
+//        context.fill(pageRect)
+//        
+//        // Save the graphics state
+//        context.cgContext.saveGState()
+//        
+//        // Flip the context vertically to correct the orientation
+//        // PDFs have origin at bottom-left, UIKit has origin at top-left
+//        context.cgContext.translateBy(x: 0, y: pageRect.size.height)
+//        context.cgContext.scaleBy(x: 1.0, y: -1.0)
+//        
+//        // Draw the PDF page in the properly transformed context
+//        page.draw(with: .mediaBox, to: context.cgContext)
+//        
+//        // Restore the graphics state
+//        context.cgContext.restoreGState()
+//    }
+//    
+//    return image
+//}
+
+
+
+//func placeFile(named filename: String) async {
+//    guard let leftFingerPosition = fingerEntities[.left]?.transform.translation else { return }
+//    let placementLocation = leftFingerPosition + SIMD3<Float>(0, -0.05, 0)
+//    
+//    // Load PDF and generate image with corrected orientation
+//    guard let pdfURL = Bundle.main.url(forResource: filename, withExtension: "pdf"),
+//          let pdfImage = imageFromPDF(url: pdfURL),
+//          let cgImage = pdfImage.cgImage else {
+//        print("PDF processing error")
+//        return
+//    }
+//    
+//    // Create a texture from the PDF image
+//    guard let textureResource = try? await TextureResource(image: cgImage, options: .init(semantic: nil)) else {
+//        print("Texture conversion error")
+//        return
+//    }
+//    
+//    var textMaterial = UnlitMaterial()
+//    textMaterial.color = .init(tint: .white, texture: .init(textureResource))
+//    
+//    // Match box proportions to PDF aspect
+//    let imageSize = pdfImage.size
+//    let aspectRatio = imageSize.height / imageSize.width
+//    let desiredWidth: Float = 0.2
+//    let desiredHeight: Float = desiredWidth * Float(aspectRatio)
+//    
+//    // "Paper" box
+//    let fileEntity = ModelEntity(
+//        mesh: .generateBox(size: SIMD3<Float>(desiredWidth, 0.002, desiredHeight)),
+//        materials: [SimpleMaterial(color: .white, isMetallic: false)],
+//        collisionShape: .generateBox(size: SIMD3<Float>(desiredWidth, 0.002, desiredHeight)),
+//        mass: 1.0
+//    )
+//    fileEntity.setPosition(placementLocation, relativeTo: nil)
+//    
+//    // PDF plane
+//    let textPlane = ModelEntity(
+//        mesh: .generatePlane(width: desiredWidth, height: desiredHeight),
+//        materials: [textMaterial]
+//    )
+//    fileEntity.addChild(textPlane)
+//    
+//    // Position the plane slightly above the top face of the box
+//    textPlane.setPosition(SIMD3<Float>(0, 0.0011, 0), relativeTo: fileEntity)
+//    
+//    // Rotate the plane to face upward
+//    textPlane.transform.rotation = simd_quatf(angle: -Float.pi/2, axis: SIMD3<Float>(1, 0, 0))
+//    
+//    contentEntity.addChild(fileEntity)
+//}
+
+//     Example gaze detection trigger:
+//    func onGaze(at object: ModelEntity, label: String) async {
+//         await showLabel(for: object, with: label)
+//    }
+//
+//    func collectDesktopCenterOnPinch() async -> SIMD3<Float>? {
+//        for await update in handTracking.anchorUpdates {
+//            let handAnchor = update.anchor
+//            guard handAnchor.isTracked, handAnchor.chirality == .right else { continue }
+//
+//            let thumbTip = handAnchor.handSkeleton?.joint(.thumbTip)
+//            let indexTip = handAnchor.handSkeleton?.joint(.indexFingerTip)
+//
+//            if let thumb = thumbTip, let index = indexTip,
+//               thumb.isTracked, index.isTracked {
+//                let thumbPos = simd_make_float3(handAnchor.originFromAnchorTransform * thumb.anchorFromJointTransform.columns.3)
+//                let indexPos = simd_make_float3(handAnchor.originFromAnchorTransform * index.anchorFromJointTransform.columns.3)
+//
+//                let distance = simd_distance(thumbPos, indexPos)
+//                if distance < 0.02 { // Pinch detected
+//                    if let leftFingerTip = fingerEntities[.left]?.transform.translation {
+//                        print("✅ Desktop center set at: \(leftFingerTip)")
+//                        return leftFingerTip
+//                    }
+//                }
+//            }
+//        }
+//        return nil
+//    }
