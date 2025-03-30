@@ -131,6 +131,7 @@ struct StackingView: View {
             // process our world reconstruction
             await model.processReconstructionUpdates()
         }.task {
+            // placing globs
             for await _ in model.didPinchStream {
                 if model.objectsPlaced < 5 && currentIndex < objectsToPlace.count {
                     let data = objectsToPlace[currentIndex]

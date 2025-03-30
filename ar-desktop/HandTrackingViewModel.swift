@@ -481,7 +481,7 @@ import Combine
 
                 fileEntity.addChild(previewPlane)
 
-                let previewOffset = SIMD3<Float>(0, 0.0005, 0)
+                let previewOffset = SIMD3<Float>(0, 0.003, 0)
                 previewPlane.setPosition(previewOffset, relativeTo: fileEntity)
 
                 let upwardRotation = simd_quatf(angle: -Float.pi/2, axis: SIMD3<Float>(1, 0, 0))
