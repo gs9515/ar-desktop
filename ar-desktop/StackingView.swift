@@ -81,28 +81,29 @@ func hexStringToUIColor (hex:String) -> Color {
 struct StackingView: View {
     @StateObject var model = HandTrackingViewModel()
     @State private var didRunSetup = false
+    @State private var shouldPlaceObject = false
 
     
     // Data structure and index for the next object(s) to palce
     @State var currentIndex = 0
     @State var objectsToPlace: [ObjectData] = [
-        ObjectData(materialName: "Red", label: "Communication", color: hexStringToUIColor(hex: "#FF4D0D"), files: [
+        ObjectData(materialName: "Red_v2", label: "Communication", color: hexStringToUIColor(hex: "#FF4D0D"), files: [
             File(label: "Messages", fileType: "application", fileLocation: "messages.png"),
             File(label: "WhatsApp", fileType: "application", fileLocation: "whatsapp.png"),
             File(label: "Mail", fileType: "application", fileLocation: "mail.png"),
             File(label: "Letter from Mom", fileType: "pdf", fileLocation: "notes.png"),
             File(label: "Letter from Bobby", fileType: "pdf", fileLocation: "notes.png")
         ]),
-        ObjectData(materialName: "Yellow", label: "Office", color: hexStringToUIColor(hex:"#F4FE04"), files: [
+        ObjectData(materialName: "Yellow_v2", label: "Office", color: hexStringToUIColor(hex:"#F4FE04"), files: [
             File(label: "Word", fileType: "application", fileLocation: "/src/word"),
         ]),
-        ObjectData(materialName: "Green", label: "Browsers", color: hexStringToUIColor(hex:"#2ABB5D"), files: [
+        ObjectData(materialName: "Green_v2", label: "Browsers", color: hexStringToUIColor(hex:"#2ABB5D"), files: [
             File(label: "Chrome", fileType: "application", fileLocation: "/src/chrome"),
         ]),
-        ObjectData(materialName: "Blue", label: "Memories", color: hexStringToUIColor(hex:"#5074FD"), files: [
+        ObjectData(materialName: "Blue_v2", label: "Memories", color: hexStringToUIColor(hex:"#5074FD"), files: [
             File(label: "Dad", fileType: "photo", fileLocation: "/src/dad.jpg"),
         ]),
-        ObjectData(materialName: "Purple", label: "Documents", color: hexStringToUIColor(hex:"#AE69FB"), files: [
+        ObjectData(materialName: "Purple_v2", label: "Documents", color: hexStringToUIColor(hex:"#AE69FB"), files: [
             File(label: "Independent Work Proposal", fileType: "file", fileLocation: "/src/iw_prop.pdf"),
         ]),
     ]
@@ -129,34 +130,62 @@ struct StackingView: View {
         }.task {
             // process our world reconstruction
             await model.processReconstructionUpdates()
+        }.task {
+            for await _ in model.didPinchStream {
+                if model.objectsPlaced < 5 && currentIndex < objectsToPlace.count {
+                    let data = objectsToPlace[currentIndex]
+                    if let entity = await model.placeObject(
+                        meshName: "Domed_Cylinder",
+                        materialName: data.materialName,
+                        label: data.label,
+                        color: data.color
+                    ) {
+                        entity.customMetadata = CustomMetadata(
+                            label: data.label,
+                            color: data.color,
+                            materialName: data.materialName,
+                            files: data.files
+                        )
+                    }
+                    currentIndex += 1
+                }
+            }
         }
         .gesture(
-            model.objectsPlaced < 5 && currentIndex < objectsToPlace.count ?
             SpatialTapGesture()
                 .targetedToAnyEntity()
-                .onEnded({ value in
+                .onEnded { value in
                     Task {
-                        let data = objectsToPlace[currentIndex]
-                        // Assume that placeObject now returns an optional ModelEntity
-                        if let entity = await model.placeObject(
-//                            meshName: "Domed_Cylinder",
-                            materialName: data.materialName,
-                            label: data.label,
-                            color: data.color
-                        ) {
-                            // Associate custom metadata with the placed entity
-                            entity.customMetadata = CustomMetadata(
-                                label: data.label,
-                                color: data.color,
-                                materialName: data.materialName,
-                                files: data.files // Replace with actual files if available
-                            )
+//                        // PLACE GLOBS
+//                        if model.objectsPlaced < 5 && currentIndex < objectsToPlace.count {
+//                            let data = objectsToPlace[currentIndex]
+//                            if let entity = await model.placeObject(
+//                                meshName: "Domed_Cylinder",
+//                                materialName: data.materialName,
+//                                label: data.label,
+//                                color: data.color
+//                            ) {
+//                                entity.customMetadata = CustomMetadata(
+//                                    label: data.label,
+//                                    color: data.color,
+//                                    materialName: data.materialName,
+//                                    files: data.files
+//                                )
+//                            }
+//                            currentIndex += 1
+//                        // Make opening a group possible on these blobs
+                        if let entity = value.entity as? ModelEntity, let metadata = entity.customMetadata {
+                            await model.openGroup(label: metadata.label,
+                                                  color: metadata.color,
+                                                  materialName: metadata.materialName,
+                                                  files: metadata.files.map { [
+                                                      "label": $0.label,
+                                                      "fileType": $0.fileType,
+                                                      "fileLocation": $0.fileLocation
+                                                  ] })
                         }
-                        
-                        // Add to the index
-                        currentIndex += 1
                     }
-                }) : nil
+                }
         )
         .gesture(
             DragGesture()
@@ -164,25 +193,6 @@ struct StackingView: View {
                 .onChanged { value in
                     if let entity = value.entity as? ModelEntity {
                         entity.position = value.convert(value.location3D, from: .local, to: entity.parent!)
-                    }
-                }
-        )
-        .simultaneousGesture(
-            SpatialTapGesture()
-                .targetedToAnyEntity()
-                .onEnded { value in
-                    // Check if the tapped entity has custom metadata attached
-                    if let entity = value.entity as? ModelEntity, let metadata = entity.customMetadata {
-                        Task {
-                            await model.openGroup(label: metadata.label,
-                                                    color: metadata.color,
-                                                    materialName: metadata.materialName,
-                                                    files: metadata.files.map { [
-                                                        "label": $0.label,
-                                                        "fileType": $0.fileType,
-                                                        "fileLocation": $0.fileLocation
-                                                    ] })
-                        }
                     }
                 }
         )

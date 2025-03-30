@@ -13,6 +13,8 @@ import RealityKitContent
 import UIKit
 import PDFKit
 
+import Combine
+
 @MainActor class HandTrackingViewModel: ObservableObject {
     @Published var objectsPlaced: Int = 0
     @Published var desktopCenter: SIMD3<Float> = SIMD3<Float>(0, 0, 0)
@@ -36,6 +38,19 @@ import PDFKit
     
     // To not place too many cubes at a time
     private var lastCuvePlacementTime: TimeInterval = 0
+
+    private let didPinchSubject = PassthroughSubject<Void, Never>()
+
+    var didPinchStream: AsyncStream<Void> {
+        AsyncStream { continuation in
+            let cancellable = didPinchSubject.sink { _ in
+                continuation.yield()
+            }
+            continuation.onTermination = { _ in
+                cancellable.cancel()
+            }
+        }
+    }
     
     
     // FUNCTIONS
@@ -133,6 +148,23 @@ import PDFKit
             
             // position finger entities
             fingerEntities[handAnchor.chirality]?.setTransformMatrix(originFromIndex, relativeTo: nil)
+            
+            if handAnchor.chirality == .right {
+                if let thumb = handAnchor.handSkeleton?.joint(.thumbTip),
+                   let index = handAnchor.handSkeleton?.joint(.indexFingerTip),
+                   thumb.isTracked, index.isTracked {
+
+                    let thumbPos = simd_make_float3(handAnchor.originFromAnchorTransform * thumb.anchorFromJointTransform.columns.3)
+                    let indexPos = simd_make_float3(handAnchor.originFromAnchorTransform * index.anchorFromJointTransform.columns.3)
+
+                    let distance = simd_distance(thumbPos, indexPos)
+                    let now = Date().timeIntervalSince1970
+                    if distance < 0.02 && now - lastCuvePlacementTime > 1.0 {
+                        lastCuvePlacementTime = now
+                        didPinchSubject.send()
+                    }
+                }
+            }
         }
     }
     
@@ -222,15 +254,23 @@ import PDFKit
             material = SimpleMaterial(color: UIColor(color), isMetallic: false)
         } else {
             do {
-                material = try await extractMaterial(fromUSDNamed: materialName, entityName: "Sphere")
+                material = try await extractMaterial(fromUSDNamed: materialName, entityName: "Geometry")
             } catch {
-                print("Error loading material: \(error), using default blue material")
+                print("Error loading material: \(error), using default material")
                 material = SimpleMaterial(color: UIColor(color), isMetallic: false)
             }
         }
         
         // ADD BASIC OBJECT STUFF
         let object = ModelEntity(mesh: meshResource, materials: [material])
+        // scale it way down
+        object.scale = SIMD3<Float>(repeating: Float(0.001))
+        // rotate it upwards
+        let rotation = simd_quatf(angle: -.pi / 2, axis: SIMD3<Float>(1, 0, 0))
+        object.transform.rotation = rotation
+        
+        
+        contentEntity.addChild(object)
 //        object.scale = SIMD3<Float>(repeating: 0.1) // Or any small factor
         object.setPosition(placementLocation, relativeTo: nil)
         object.components.set(InputTargetComponent(allowedInputTypes: .indirect))
@@ -252,13 +292,12 @@ import PDFKit
                 mode: .dynamic
             )
         )
-        object.physicsBody?.linearDamping = 5.0
-        object.physicsBody?.angularDamping = 5.0
+        object.physicsBody?.linearDamping = 10.0
+        object.physicsBody?.angularDamping = 10.0
         
         // add hover glisten effect
         object.components.set(HoverEffectComponent())
         
-        contentEntity.addChild(object)
         return object
     }
     
@@ -353,9 +392,10 @@ import PDFKit
             material = SimpleMaterial(color: UIColor(color), isMetallic: false)
         } else {
             do {
-                material = try await extractMaterial(fromUSDNamed: materialName, entityName: "Sphere")
+                let trimmedMaterialName = String(materialName.dropLast(3))
+                material = try await extractMaterial(fromUSDNamed: trimmedMaterialName, entityName: "Sphere")
             } catch {
-                print("Error loading material: \(error), using default blue material")
+                print("Error loading material: \(error), using default colored material")
                 material = SimpleMaterial(color: UIColor(color), isMetallic: false)
             }
         }
@@ -364,7 +404,12 @@ import PDFKit
         highlightEntity.setPosition(desktopCenter, relativeTo: nil)
         highlightEntity.generateCollisionShapes(recursive: true)
         highlightEntity.components.set(PhysicsBodyComponent(mode: .static))
-        contentEntity.addChild(highlightEntity)
+        
+        let groupContainer = Entity()
+        contentEntity.addChild(groupContainer)
+        currentGroupEntity = groupContainer
+        
+        groupContainer.addChild(highlightEntity)
         
         // Add a label above this highlight, also along the table -- the background can be of color color
         Task {
@@ -411,8 +456,8 @@ import PDFKit
                     mode: .dynamic
                 )
             )
-            fileEntity.physicsBody?.linearDamping = 3.0
-            fileEntity.physicsBody?.angularDamping = 3.0
+            fileEntity.physicsBody?.linearDamping = 10.0
+            fileEntity.physicsBody?.angularDamping = 10.0
             fileEntity.components.set(GroundingShadowComponent(castsShadow: true))
             fileEntity.components.set(HoverEffectComponent())
             
@@ -421,31 +466,26 @@ import PDFKit
                let image = UIImage(named: previewName),
                let cgImage = image.cgImage,
                let textureResource = try? await TextureResource(image: cgImage, options: .init(semantic: nil)) {
-                var previewMaterial = UnlitMaterial()
-                previewMaterial.color = .init(tint: .white, texture: .init(textureResource))
-    
+                
+                var previewMaterial = PhysicallyBasedMaterial()
+
+                previewMaterial.baseColor = PhysicallyBasedMaterial.BaseColor(
+                    tint: .white,
+                    texture: .init(textureResource)
+                )
+
                 let previewPlane = ModelEntity(
                     mesh: .generatePlane(width: 0.075, height: 0.075),
                     materials: [previewMaterial]
                 )
-                print("Preview image \(previewName) loaded and added to fileEntity")
+
                 fileEntity.addChild(previewPlane)
-                
-                // Position the preview plane so its bottom edge aligns with the top face of the file box
-                // The file box is 0.002 tall and centered at 0, so its top face is at y = 0.001
-                // By setting the preview plane's position to (0, 0.001, 0) relative to fileEntity,
-                // and rotating it so that its front face points upward, we align it correctly
-//                previewPlane.setPosition(SIMD3<Float>(0, 0.001, 0), relativeTo: fileEntity)
-//                previewPlane.transform.rotation = simd_quatf(angle: -Float.pi/2, axis: SIMD3<Float>(1, 0, 0))
-                // Position the preview directly above the file box with a small offset
-                let previewOffset = SIMD3<Float>(0, 0.005, 0) // 5mm above the file box
+
+                let previewOffset = SIMD3<Float>(0, 0.0005, 0)
                 previewPlane.setPosition(previewOffset, relativeTo: fileEntity)
 
-                // Make sure the preview faces upward
                 let upwardRotation = simd_quatf(angle: -Float.pi/2, axis: SIMD3<Float>(1, 0, 0))
                 previewPlane.transform.rotation = upwardRotation
-    
-                
             }
             
             // Add label if present
