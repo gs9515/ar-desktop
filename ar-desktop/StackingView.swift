@@ -110,13 +110,14 @@ struct StackingView: View {
     
     var body: some View {
         RealityView { content in
-            // add our content entity (holds cube and fingertips)
+            // add our content entity (holds objects and fingertips)
             content.add(model.setupContentEntity())
             
       }.onAppear {
             if !didRunSetup {
                 Task {
-                    await model.collectDesktopCenterOnPinch() // Your one-time function
+                    // One-time function to collect the center of the desktop (where the user starts their pointer finger)
+                    await _ = model.collectDesktopCenterOnPinch()
                     didRunSetup = true
                 }
             }
@@ -153,28 +154,11 @@ struct StackingView: View {
             }
         }
         .gesture(
+            // Listen for when to open the group
             SpatialTapGesture()
                 .targetedToAnyEntity()
                 .onEnded { value in
                     Task {
-//                        // PLACE GLOBS
-//                        if model.objectsPlaced < 5 && currentIndex < objectsToPlace.count {
-//                            let data = objectsToPlace[currentIndex]
-//                            if let entity = await model.placeObject(
-//                                meshName: "Domed_Cylinder",
-//                                materialName: data.materialName,
-//                                label: data.label,
-//                                color: data.color
-//                            ) {
-//                                entity.customMetadata = CustomMetadata(
-//                                    label: data.label,
-//                                    color: data.color,
-//                                    materialName: data.materialName,
-//                                    files: data.files
-//                                )
-//                            }
-//                            currentIndex += 1
-//                        // Make opening a group possible on these blobs
                         if let entity = value.entity as? ModelEntity, let metadata = entity.customMetadata {
                             await model.openGroup(label: metadata.label,
                                                   color: metadata.color,
@@ -189,6 +173,7 @@ struct StackingView: View {
                 }
         )
         .gesture(
+            // Enable pinch to drag on these items
             DragGesture()
                 .targetedToAnyEntity()
                 .onChanged { value in

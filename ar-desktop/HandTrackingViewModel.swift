@@ -15,6 +15,11 @@ import PDFKit
 
 import Combine
 
+struct LabelComponent: Component {
+    var text: String
+    var color: UIColor
+}
+
 @MainActor class HandTrackingViewModel: ObservableObject {
     @Published var objectsPlaced: Int = 0
     @Published var desktopCenter: SIMD3<Float> = SIMD3<Float>(0, 0, 0)
@@ -22,6 +27,7 @@ import Combine
     // Hand tracking
     private let session = ARKitSession()
     private let handTracking = HandTrackingProvider()
+    private let worldTracking = WorldTrackingProvider()
     
     // Detecting funiture, tables, etc
     private let sceneReconstruction = SceneReconstructionProvider()
@@ -55,9 +61,7 @@ import Combine
     
     // FUNCTIONS
 
-    // Reusable floating label function using RealityKit's generateText with background
-    func showLabel(for object: ModelEntity, with text: String, color theColor: UIColor) async {
-        // Generate vector-based text mesh with larger font
+    func showLabel(for object: ModelEntity, with text: String, color theColor: UIColor, height: Float = 0.2) async {
         let textMesh = MeshResource.generateText(
             text,
             extrusionDepth: 0.01,
@@ -67,50 +71,66 @@ import Combine
             lineBreakMode: .byWordWrapping
         )
         
-        // Create unlit material for clear readability
         let textMaterial = UnlitMaterial(color: .black)
         let textEntity = ModelEntity(mesh: textMesh, materials: [textMaterial])
         textEntity.scale = SIMD3<Float>(repeating: 0.05)
         
-        // Compute text bounds to size background plane
         let textBounds = textMesh.bounds.extents
         let backgroundWidth = textBounds.x * 0.2
         let backgroundHeight = textBounds.y * 0.3
         
-        // Create background plane
-        let backgroundMesh = MeshResource.generatePlane(width: backgroundWidth, height: backgroundHeight)
-        let backgroundMaterial = UnlitMaterial(color: theColor)
-        let backgroundEntity = ModelEntity(mesh: backgroundMesh, materials: [backgroundMaterial])
-        if var modelComponent = backgroundEntity.model {
-            modelComponent.mesh = .generatePlane(width: backgroundWidth, height: backgroundHeight, cornerRadius: 0.01)
-            backgroundEntity.model = modelComponent
-        }
+        let transparentColor = theColor.withAlphaComponent(0.0)
+        var backgroundMaterial = SimpleMaterial(color: transparentColor, isMetallic: false)
+        let backgroundEntity = ModelEntity(
+            mesh: .generatePlane(width: backgroundWidth, height: backgroundHeight, cornerRadius: 0.01),
+            materials: [backgroundMaterial]
+        )
         
-        // Adjust text position to center on background
         let textCenterOffset = SIMD3<Float>(
             -textBounds.x * textEntity.scale.x,
             -textBounds.y * textEntity.scale.y,
             0.001
         )
         textEntity.setPosition(textCenterOffset, relativeTo: backgroundEntity)
-        // Add text as child of background and adjust scale
         textEntity.scale = SIMD3<Float>(repeating: 0.1)
         backgroundEntity.addChild(textEntity)
         
         backgroundEntity.components.set(BillboardComponent())
         contentEntity.addChild(backgroundEntity)
         
-        // Animate label following the object
-        Task {
-            var timeElapsed: UInt64 = 0
-            while timeElapsed < 3_000_000_000 {
-                let objectWorldPos = object.position(relativeTo: nil)
-                let offset = SIMD3<Float>(0, 0.2, 0)
-                backgroundEntity.setPosition(objectWorldPos + offset, relativeTo: nil)
-                try? await Task.sleep(nanoseconds: 33_000_000) // ~30fps
-                timeElapsed += 33_000_000
-            }
-            backgroundEntity.removeFromParent()
+        let objectWorldPos = object.position(relativeTo: nil)
+        let offset = SIMD3<Float>(0, height, 0)
+        backgroundEntity.setPosition(objectWorldPos + offset, relativeTo: nil)
+
+        // Fade in
+        await animateAlpha(of: backgroundEntity, from: 0.0, to: 0.5, duration: 0.15)
+
+        // Wait 3 seconds
+        try? await Task.sleep(nanoseconds: 3_000_000_000)
+
+        // Fade out
+        await animateAlpha(of: backgroundEntity, from: 0.5, to: 0.0, duration: 0.15)
+
+        // Remove from scene
+        backgroundEntity.removeFromParent()
+    }
+
+    func animateAlpha(of entity: ModelEntity, from startAlpha: CGFloat, to endAlpha: CGFloat, duration: TimeInterval) async {
+        guard var material = entity.model?.materials.first as? SimpleMaterial else { return }
+
+        let steps = 30
+        let delay = duration / Double(steps)
+
+        for step in 0...steps {
+            let t = CGFloat(step) / CGFloat(steps)
+            let alpha = startAlpha + (endAlpha - startAlpha) * t
+            var color = material.color.tint
+            color = color.withAlphaComponent(alpha)
+
+            material.color = .init(tint: color)
+            entity.model?.materials = [material]
+
+            try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
         }
     }
     
@@ -124,7 +144,12 @@ import Combine
     
     func runSession() async {
         do {
-            try await session.run([sceneReconstruction, handTracking])
+            try await session.run([sceneReconstruction, handTracking, worldTracking])
+            
+            // RUN GAZE TRACKING
+            Task {
+                await runGazeDetectionLoop()
+            }
         } catch {
             print ("failed to start session: \(error)")
         }
@@ -278,7 +303,9 @@ import Combine
 
         // Example usage: Show label when object is placed
         Task {
-            await showLabel(for: object, with: label, color: UIColor(color).withAlphaComponent(0.5))
+            await showLabel(for: object, with: label, color: UIColor(color), height: 0.1)
+            // Gaze Tracking Label
+            object.components.set(LabelComponent(text: label, color: UIColor(color).withAlphaComponent(0.5)))
         }
 
         // Add physics with dynamic mode so it falls onto the table
@@ -304,27 +331,27 @@ import Combine
     //////////////////////////
     
 
-    private func findTableSurface(near point: SIMD3<Float>) -> ModelEntity? {
-        var closestEntity: ModelEntity? = nil
-        var minHorizontalDistance: Float = Float.greatestFiniteMagnitude
-
-        for entity in meshEntities.values {
-            let upVector = simd_act(entity.transform.rotation, SIMD3<Float>(0, 1, 0))
-            if abs(upVector.y) > 0.9 {  // Flat surface check
-                let boundsCenter = entity.visualBounds(relativeTo: nil).center
-                let dx = boundsCenter.x - point.x
-                let dz = boundsCenter.z - point.z
-                let horizontalDistance = sqrt(dx * dx + dz * dz)
-
-                if horizontalDistance < minHorizontalDistance {
-                    minHorizontalDistance = horizontalDistance
-                    closestEntity = entity
-                }
-            }
-        }
-
-        return closestEntity
-    }
+//    private func findTableSurface(near point: SIMD3<Float>) -> ModelEntity? {
+//        var closestEntity: ModelEntity? = nil
+//        var minHorizontalDistance: Float = Float.greatestFiniteMagnitude
+//
+//        for entity in meshEntities.values {
+//            let upVector = simd_act(entity.transform.rotation, SIMD3<Float>(0, 1, 0))
+//            if abs(upVector.y) > 0.9 {  // Flat surface check
+//                let boundsCenter = entity.visualBounds(relativeTo: nil).center
+//                let dx = boundsCenter.x - point.x
+//                let dz = boundsCenter.z - point.z
+//                let horizontalDistance = sqrt(dx * dx + dz * dz)
+//
+//                if horizontalDistance < minHorizontalDistance {
+//                    minHorizontalDistance = horizontalDistance
+//                    closestEntity = entity
+//                }
+//            }
+//        }
+//
+//        return closestEntity
+//    }
     
     // Add a property to track the current open group
     private var currentGroupEntity: Entity?
@@ -373,9 +400,9 @@ import Combine
         groupContainer.addChild(highlightEntity)
         
         // Add a label above this highlight, also along the table -- the background can be of color color
-        Task {
-            await showLabel(for: highlightEntity, with: label, color: UIColor(color).withAlphaComponent(0.5))
-        }
+//        Task {
+//            await showLabel(for: highlightEntity, with: label, color: UIColor(color).withAlphaComponent(0.5))
+//        }
         
         // Arrange file icons in a grid within the highlight area
         let fileCount = files.count
@@ -395,6 +422,7 @@ import Combine
             let fileMesh = MeshResource.generateBox(size: SIMD3<Float>(0.08, 0.002, 0.08))
             let fileMaterial = SimpleMaterial(color: .gray, isMetallic: true)
             let fileEntity = ModelEntity(mesh: fileMesh, materials: [fileMaterial])
+            
             
             // Enable input and physics
             fileEntity.components.set(InputTargetComponent(allowedInputTypes: .indirect))
@@ -443,10 +471,16 @@ import Combine
             
             // Add label if present
             if let fileLabel = fileDict["label"] {
-                Task {
-                    await self.showLabel(for: fileEntity, with: fileLabel, color: UIColor(.white).withAlphaComponent(0.8))
-                }
+//                Task {
+//                    await self.showLabel(for: fileEntity, with: fileLabel, color: UIColor(.white).withAlphaComponent(0.8))
+//                }
+                // GazeTracking Label
+                fileEntity.components.set(LabelComponent(text: fileLabel, color: .white.withAlphaComponent(0.5)))
+                
             }
+            
+            
+            
             
             highlightEntity.addChild(fileEntity)
             
@@ -481,6 +515,52 @@ import Combine
         print("⚠️ Left finger still at 0,0,0 after waiting for 2 seconds")
         return nil
     }
+    
+    // GAZE TRACKING
+    func runGazeDetectionLoop() async {
+        // Wait for world tracking to be running
+        while worldTracking.state != .running {
+            print("⏳ Waiting for worldTracking to start...")
+            try? await Task.sleep(nanoseconds: 200_000_000)
+        }
+
+        print("✅ worldTracking is now running. Starting gaze detection loop.")
+        
+        var lastLabelShownTime: TimeInterval = 0
+        let labelCooldown: TimeInterval = 0
+
+        while true {
+            if let transform = worldTracking.queryDeviceAnchor(atTimestamp: CACurrentMediaTime())?.originFromAnchorTransform {
+                let cameraPosition = simd_make_float3(transform.columns.3)
+                let pitchDownAngle: Float = -.pi / 14  // ~13 degrees downward offset
+                let right = simd_make_float3(transform.columns.0)
+                let downwardRotation = simd_quatf(angle: pitchDownAngle, axis: right)
+                var forward = -simd_make_float3(transform.columns.2)
+                forward = simd_normalize(downwardRotation.act(forward))
+
+                if let result = contentEntity.scene?.raycast(origin: cameraPosition, direction: forward, length: 2.0).first {
+                    let entity = result.entity
+                    print("👁 Gaze hit entity: \(entity.name)")
+                    if let labelComponent = entity.components[LabelComponent.self] {
+                        let currentTime = Date().timeIntervalSince1970
+                        if currentTime - lastLabelShownTime > labelCooldown {
+                            lastLabelShownTime = currentTime
+                            print("🟢 LabelComponent found: \(labelComponent.text)")
+                            await showLabel(for: entity as! ModelEntity, with: labelComponent.text, color: labelComponent.color, height: 0.1)
+                        } else {
+                            print("⏸ Label cooldown active")
+                        }
+                    } else {
+                        print("⚠️ No LabelComponent on hit entity")
+                    }
+                } else {
+                    print("👁 Nothing hit by gaze raycast")
+                }
+            }
+
+            try? await Task.sleep(nanoseconds: 250_000_000)
+        }
+    }
 }
 
 extension Collection where Element == Entity {
@@ -505,31 +585,31 @@ extension Collection where Element == Entity {
 //        print("Failed to load PDF")
 //        return nil
 //    }
-//    
+//
 //    let pageRect = page.bounds(for: .mediaBox)
 //    let renderer = UIGraphicsImageRenderer(size: pageRect.size)
-//    
+//
 //    // Create the image with proper orientation
 //    let image = renderer.image { context in
 //        // Clear the background with white
 //        UIColor.white.set()
 //        context.fill(pageRect)
-//        
+//
 //        // Save the graphics state
 //        context.cgContext.saveGState()
-//        
+//
 //        // Flip the context vertically to correct the orientation
 //        // PDFs have origin at bottom-left, UIKit has origin at top-left
 //        context.cgContext.translateBy(x: 0, y: pageRect.size.height)
 //        context.cgContext.scaleBy(x: 1.0, y: -1.0)
-//        
+//
 //        // Draw the PDF page in the properly transformed context
 //        page.draw(with: .mediaBox, to: context.cgContext)
-//        
+//
 //        // Restore the graphics state
 //        context.cgContext.restoreGState()
 //    }
-//    
+//
 //    return image
 //}
 
@@ -538,7 +618,7 @@ extension Collection where Element == Entity {
 //func placeFile(named filename: String) async {
 //    guard let leftFingerPosition = fingerEntities[.left]?.transform.translation else { return }
 //    let placementLocation = leftFingerPosition + SIMD3<Float>(0, -0.05, 0)
-//    
+//
 //    // Load PDF and generate image with corrected orientation
 //    guard let pdfURL = Bundle.main.url(forResource: filename, withExtension: "pdf"),
 //          let pdfImage = imageFromPDF(url: pdfURL),
@@ -546,22 +626,22 @@ extension Collection where Element == Entity {
 //        print("PDF processing error")
 //        return
 //    }
-//    
+//
 //    // Create a texture from the PDF image
 //    guard let textureResource = try? await TextureResource(image: cgImage, options: .init(semantic: nil)) else {
 //        print("Texture conversion error")
 //        return
 //    }
-//    
+//
 //    var textMaterial = UnlitMaterial()
 //    textMaterial.color = .init(tint: .white, texture: .init(textureResource))
-//    
+//
 //    // Match box proportions to PDF aspect
 //    let imageSize = pdfImage.size
 //    let aspectRatio = imageSize.height / imageSize.width
 //    let desiredWidth: Float = 0.2
 //    let desiredHeight: Float = desiredWidth * Float(aspectRatio)
-//    
+//
 //    // "Paper" box
 //    let fileEntity = ModelEntity(
 //        mesh: .generateBox(size: SIMD3<Float>(desiredWidth, 0.002, desiredHeight)),
@@ -570,20 +650,20 @@ extension Collection where Element == Entity {
 //        mass: 1.0
 //    )
 //    fileEntity.setPosition(placementLocation, relativeTo: nil)
-//    
+//
 //    // PDF plane
 //    let textPlane = ModelEntity(
 //        mesh: .generatePlane(width: desiredWidth, height: desiredHeight),
 //        materials: [textMaterial]
 //    )
 //    fileEntity.addChild(textPlane)
-//    
+//
 //    // Position the plane slightly above the top face of the box
 //    textPlane.setPosition(SIMD3<Float>(0, 0.0011, 0), relativeTo: fileEntity)
-//    
+//
 //    // Rotate the plane to face upward
 //    textPlane.transform.rotation = simd_quatf(angle: -Float.pi/2, axis: SIMD3<Float>(1, 0, 0))
-//    
+//
 //    contentEntity.addChild(fileEntity)
 //}
 
