@@ -26,5 +26,5 @@ struct ImmersiveView: View {
 
 #Preview(immersionStyle: .progressive) {
     ImmersiveView()
-        .environment(AppModel())
+        .environmentObject(AppModel())
 }

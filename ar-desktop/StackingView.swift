@@ -83,6 +83,8 @@ struct StackingView: View {
     @StateObject var model = HandTrackingViewModel()
     @State private var didRunSetup = false
     @State private var shouldPlaceObject = false
+    @Environment(\.openWindow) var openWindow
+    @EnvironmentObject var appModel: AppModel
 
     
     // Data structure and index for the next object(s) to palce
@@ -116,6 +118,8 @@ struct StackingView: View {
             
       }.onAppear {
             if !didRunSetup {
+                model.appModel = appModel // ✅ Inject it here
+                model.openWindowAction = { id in openWindow(id: id) }
                 Task {
                     // One-time function to collect the center of the desktop (where the user starts their pointer finger)
                     await _ = model.collectDesktopCenterOnPinch()

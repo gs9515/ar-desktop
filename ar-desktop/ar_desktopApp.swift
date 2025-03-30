@@ -22,8 +22,22 @@ struct ar_desktopApp: App {
 //        }
 
         ImmersiveSpace(id: "StackingSpace") {
-            StackingView()
+            StackingView().environmentObject(appModel)
         }
         .immersionStyle(selection: .constant(.mixed), in: .mixed) // Enables passthrough mode
+        
+        // 👉 Secondary window for file preview
+        WindowGroup(id: "FilePreview") {
+            if let file = appModel.previewedFile {
+                VirtualFileView(
+                    label: file.label,
+                    fileType: file.fileType,
+                    fileLocation: file.fileLocation
+                )
+                .environmentObject(appModel)
+            }
+        }
+        .windowStyle(.plain) // ✅ default system window chrome with close/position bar
     }
 }
+

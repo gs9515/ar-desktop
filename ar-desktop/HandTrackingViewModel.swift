@@ -12,6 +12,7 @@ import ARKit
 import RealityKitContent
 import UIKit
 import PDFKit
+import _RealityKit_SwiftUI // 👈 sometimes needed for VisionOS windowing
 
 import Combine
 
@@ -59,6 +60,8 @@ struct VirtualFileView: View {
 @MainActor class HandTrackingViewModel: ObservableObject {
     @Published var objectsPlaced: Int = 0
     @Published var desktopCenter: SIMD3<Float> = SIMD3<Float>(0, 0, 0)
+    @Published var appModel: AppModel? // Inject this from the view
+    @Published var openWindowAction: ((String) -> Void)? = nil
 
     // Hand tracking
     private let session = ARKitSession()
@@ -585,7 +588,14 @@ struct VirtualFileView: View {
                 await showLabel(for: currentGroupEntity as! ModelEntity, with: labelComponent.text, color: labelComponent.color, height: 0.1)
             }
         } else {
-            // OPEN THE FILE at (fileLocation) IN A 2D normal swift window above the object
+            // ⬇️ RIGHT HAND → Open the preview window
+            if let model = appModel {
+                print("📂 Opening file window for: \(label)")
+                model.previewedFile = AppModel.FilePreviewInfo(label: label, fileType: fileType, fileLocation: fileLocation)
+
+                // Open or reposition the preview window
+                openWindowAction?("FilePreview")
+            }
         }
     }
     
