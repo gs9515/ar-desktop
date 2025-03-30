@@ -23,4 +23,5 @@ class AppModel: ObservableObject {
 
     // ✅ Add this property to track window state
     @Published var isPreviewWindowOpen: Bool = false
+    @Published var isPreviewVisible: Bool = true
 }

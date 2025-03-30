@@ -445,8 +445,9 @@ struct FileMetadataComponent: Component {
             currentGroupEntity = nil
             
             // Dismiss file preview if open
-            appModel?.previewedFile = nil
-            dismissWindowAction?("FilePreview")
+//            appModel?.previewedFile = nil
+//            dismissWindowAction?("FilePreview")
+            appModel?.isPreviewVisible = false
             
             // Create a highlight entity as a plane (dimensions 4 x 5 units) for now;
             // later, you can modify this to generate an oval shape
@@ -591,24 +592,30 @@ struct FileMetadataComponent: Component {
             if let labelComponent = currentGroupEntity?.components[LabelComponent.self] {
                 await showLabel(for: currentGroupEntity as! ModelEntity, with: labelComponent.text, color: labelComponent.color, height: 0.1)
             }
-        }  else {
+        } else {
             // ✅ RIGHT HAND — trigger preview update
             guard let model = appModel else { return }
 
             let newPreview = AppModel.FilePreviewInfo(
-               label: label,
-               fileType: fileType,
-               fileLocation: fileLocation
+                label: label,
+                fileType: fileType,
+                fileLocation: fileLocation
             )
 
+            let isWindowAlreadyOpen = model.isPreviewVisible
+
             if model.previewedFile == nil {
-               model.previewedFile = newPreview
-               openWindowAction?("FilePreview")
+                // First time opening — set content and open the window
+                model.previewedFile = newPreview
+                model.isPreviewVisible = true
+                openWindowAction?("FilePreview")
             } else if model.previewedFile != newPreview {
-               model.previewedFile = newPreview
-               // Window is already open — content will update if .id() is used in the view
+                // Window is already open — just update content
+                model.previewedFile = newPreview
+                model.isPreviewVisible = true
             } else {
-                // print("⏸ Same file tapped again — no change")
+                // Same file tapped again — ensure it's visible
+                model.isPreviewVisible = true
             }
         }
     }

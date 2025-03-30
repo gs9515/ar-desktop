@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import Spatial
 
 @main
 struct ar_desktopApp: App {
@@ -15,11 +16,7 @@ struct ar_desktopApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
-//                .environment(appModel)
         }
-//        ImmersiveSpace(id: "AuraSpace") {
-//            AuraView()
-//        }
 
         ImmersiveSpace(id: "StackingSpace") {
             StackingView().environmentObject(appModel)
@@ -31,7 +28,8 @@ struct ar_desktopApp: App {
             PreviewWindowHostView()
                 .environmentObject(appModel)
         }
-        .windowStyle(.plain) // ✅ default system window chrome with close/position bar
+        .windowStyle(.plain)
+        .windowResizability(.contentSize)
     }
 }
 
@@ -41,16 +39,15 @@ struct PreviewWindowHostView: View {
     var body: some View {
         Group {
             if let file = appModel.previewedFile {
-                FilePreviewView( // ✅ swap in the real dynamic view
+                FilePreviewView(
                     label: file.label,
                     fileType: file.fileType,
                     fileLocation: file.fileLocation
                 )
-                .transition(.opacity)
+                .opacity(appModel.isPreviewVisible ? 1 : 0.0001) // 👈 essentially invisible
                 .id(file.label + file.fileLocation)
             } else {
-                Text("No file selected.")
-                    .frame(width: 300, height: 200)
+                Color.clear // Window must render something to stay alive
             }
         }
     }
