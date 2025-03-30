@@ -46,6 +46,7 @@ struct LabelComponent: Component {
     private var lastCuvePlacementTime: TimeInterval = 0
 
     private let didPinchSubject = PassthroughSubject<Void, Never>()
+    private var lastPinchChirality: HandAnchor.Chirality?
 
     var didPinchStream: AsyncStream<Void> {
         AsyncStream { continuation in
@@ -186,7 +187,25 @@ struct LabelComponent: Component {
                     let now = Date().timeIntervalSince1970
                     if distance < 0.02 && now - lastCuvePlacementTime > 1.0 {
                         lastCuvePlacementTime = now
+                        self.lastPinchChirality = handAnchor.chirality
                         didPinchSubject.send()
+                    }
+                }
+            }
+            else if handAnchor.chirality == .left {
+                if let thumb = handAnchor.handSkeleton?.joint(.thumbTip),
+                   let index = handAnchor.handSkeleton?.joint(.indexFingerTip),
+                   thumb.isTracked, index.isTracked {
+    
+                    let thumbPos = simd_make_float3(handAnchor.originFromAnchorTransform * thumb.anchorFromJointTransform.columns.3)
+                    let indexPos = simd_make_float3(handAnchor.originFromAnchorTransform * index.anchorFromJointTransform.columns.3)
+    
+                    let distance = simd_distance(thumbPos, indexPos)
+                    let now = Date().timeIntervalSince1970
+                    if distance < 0.02 && now - lastCuvePlacementTime > 1.0 {
+//                        lastCuvePlacementTime = now
+                        self.lastPinchChirality = handAnchor.chirality
+                        // Left-hand pinch detected; tracking only, not sending didPinchSubject
                     }
                 }
             }
@@ -363,129 +382,149 @@ struct LabelComponent: Component {
         // Each file is a dictionary with keys: "label", "fileType", "fileLocation"
         files: [[String: String]] = []
     ) async {
-        // If a group is already open, remove it
-        currentGroupEntity?.removeFromParent()
-        currentGroupEntity = nil
-
-        // Create a highlight entity as a plane (dimensions 4 x 5 units) for now;
-        // later, you can modify this to generate an oval shape
-        let highlightWidth: Float = 2.5/6
-        let highlightDepth: Float = 1.5/6
-        let highlightMesh = MeshResource.generatePlane(width: highlightWidth, depth: highlightDepth)
-        
-        // Create a simple material for the highlight. Later you can add custom loading logic based on materialName.
-        // LOAD MATERIAL
-        var material: RealityKit.Material
-        if materialName == "DefaultMaterial" {
-            material = SimpleMaterial(color: UIColor(color), isMetallic: false)
-        } else {
-            do {
-                let trimmedMaterialName = String(materialName.dropLast(3))
-                material = try await extractMaterial(fromUSDNamed: trimmedMaterialName, entityName: "Sphere")
-            } catch {
-                print("Error loading material: \(error), using default colored material")
-                material = SimpleMaterial(color: UIColor(color), isMetallic: false)
-            }
+        // Determine which hand pinched
+        guard let pinchHand = lastPinchChirality else {
+            print("No pinch detected")
+            return
         }
-        
-        let highlightEntity = ModelEntity(mesh: highlightMesh, materials: [material])
-        highlightEntity.setPosition(desktopCenter, relativeTo: nil)
-        highlightEntity.generateCollisionShapes(recursive: true)
-        highlightEntity.components.set(PhysicsBodyComponent(mode: .static))
-        
-        let groupContainer = Entity()
-        contentEntity.addChild(groupContainer)
-        currentGroupEntity = groupContainer
-        
-        groupContainer.addChild(highlightEntity)
-        
-        // Add a label above this highlight, also along the table -- the background can be of color color
-//        Task {
-//            await showLabel(for: highlightEntity, with: label, color: UIColor(color).withAlphaComponent(0.5))
-//        }
-        
-        // Arrange file icons in a grid within the highlight area
-        let fileCount = files.count
-        let columns = min(fileCount, 3)
-        let rows = Int(ceil(Double(fileCount) / Double(columns)))
-        
-        for (index, fileDict) in files.enumerated() {
-            let col = index % columns
-            let row = index / columns
-            let cellWidth = highlightWidth / Float(columns)
-            let cellDepth = highlightDepth / Float(rows)
-            let xOffset = (Float(col) - Float(columns - 1) / 2) * cellWidth
-            let zOffset = (Float(row) - Float(rows - 1) / 2) * cellDepth
-
-            let filePosition = SIMD3<Float>(xOffset, 0.02, zOffset)
-            
-            let fileMesh = MeshResource.generateBox(size: SIMD3<Float>(0.08, 0.002, 0.08))
-            let fileMaterial = SimpleMaterial(color: .gray, isMetallic: true)
-            let fileEntity = ModelEntity(mesh: fileMesh, materials: [fileMaterial])
-            
-            
-            // Enable input and physics
-            fileEntity.components.set(InputTargetComponent(allowedInputTypes: .indirect))
-            fileEntity.generateCollisionShapes(recursive: true)
-            
-            let physicsMaterial = PhysicsMaterialResource.generate(friction: 0.8, restitution: 0.1)
-            fileEntity.components.set(
-                PhysicsBodyComponent(
-                    shapes: fileEntity.collision!.shapes,
-                    mass: 1.0,
-                    material: physicsMaterial,
-                    mode: .dynamic
-                )
-            )
-            fileEntity.physicsBody?.linearDamping = 10.0
-            fileEntity.physicsBody?.angularDamping = 10.0
-            fileEntity.components.set(GroundingShadowComponent(castsShadow: true))
-            fileEntity.components.set(HoverEffectComponent())
-            
-            // Add preview image if present
-            if let previewName = fileDict["fileLocation"],
-               let image = UIImage(named: previewName),
-               let cgImage = image.cgImage,
-               let textureResource = try? await TextureResource(image: cgImage, options: .init(semantic: nil)) {
-                
-                var previewMaterial = PhysicallyBasedMaterial()
-
-                previewMaterial.baseColor = PhysicallyBasedMaterial.BaseColor(
-                    tint: .white,
-                    texture: .init(textureResource)
-                )
-
-                let previewPlane = ModelEntity(
-                    mesh: .generatePlane(width: 0.075, height: 0.075),
-                    materials: [previewMaterial]
-                )
-
-                fileEntity.addChild(previewPlane)
-
-                let previewOffset = SIMD3<Float>(0, 0.003, 0)
-                previewPlane.setPosition(previewOffset, relativeTo: fileEntity)
-
-                let upwardRotation = simd_quatf(angle: -Float.pi/2, axis: SIMD3<Float>(1, 0, 0))
-                previewPlane.transform.rotation = upwardRotation
+       
+        // ONLY SHOW LABEL IF PINCHED WITH LEFT HAND
+        if pinchHand == .left {
+            print("LEFT HAND PINCH")
+            if let entityToAnchor = contentEntity.findEntity(byLabel: label) {
+                if let labelComponent = entityToAnchor.components[LabelComponent.self] {
+                    await showLabel(for: entityToAnchor, with: labelComponent.text, color: labelComponent.color, height: 0.1)
+                }
             }
             
-            // Add label if present
-            if let fileLabel = fileDict["label"] {
-//                Task {
-//                    await self.showLabel(for: fileEntity, with: fileLabel, color: UIColor(.white).withAlphaComponent(0.8))
-//                }
-                // GazeTracking Label
-                fileEntity.components.set(LabelComponent(text: fileLabel, color: .white.withAlphaComponent(0.5)))
-                
+            if let labelComponent = currentGroupEntity?.components[LabelComponent.self] {
+                await showLabel(for: currentGroupEntity as! ModelEntity, with: labelComponent.text, color: labelComponent.color, height: 0.1)
+            }
+        } else {
+            // If a group is already open, remove it
+            currentGroupEntity?.removeFromParent()
+            currentGroupEntity = nil
+            
+            // Create a highlight entity as a plane (dimensions 4 x 5 units) for now;
+            // later, you can modify this to generate an oval shape
+            let highlightWidth: Float = 2.5/6
+            let highlightDepth: Float = 1.5/6
+            let highlightMesh = MeshResource.generatePlane(width: highlightWidth, depth: highlightDepth)
+            
+            // Create a simple material for the highlight. Later you can add custom loading logic based on materialName.
+            // LOAD MATERIAL
+            var material: RealityKit.Material
+            if materialName == "DefaultMaterial" {
+                material = SimpleMaterial(color: UIColor(color), isMetallic: false)
+            } else {
+                do {
+                    let trimmedMaterialName = String(materialName.dropLast(3))
+                    material = try await extractMaterial(fromUSDNamed: trimmedMaterialName, entityName: "Sphere")
+                } catch {
+                    print("Error loading material: \(error), using default colored material")
+                    material = SimpleMaterial(color: UIColor(color), isMetallic: false)
+                }
             }
             
+            let highlightEntity = ModelEntity(mesh: highlightMesh, materials: [material])
+            highlightEntity.setPosition(desktopCenter, relativeTo: nil)
+            highlightEntity.generateCollisionShapes(recursive: true)
+            highlightEntity.components.set(PhysicsBodyComponent(mode: .static))
             
+            let groupContainer = Entity()
+            contentEntity.addChild(groupContainer)
+            currentGroupEntity = groupContainer
             
+            groupContainer.addChild(highlightEntity)
             
-            highlightEntity.addChild(fileEntity)
+            // Add a label above this highlight, also along the table -- the background can be of color color
+            //        Task {
+            //            await showLabel(for: highlightEntity, with: label, color: UIColor(color).withAlphaComponent(0.5))
+            //        }
             
-            fileEntity.setPosition(filePosition, relativeTo: highlightEntity) // Position relative to the highlight, not world space
-            fileEntity.transform.rotation = simd_quatf()
+            // Arrange file icons in a grid within the highlight area
+            let fileCount = files.count
+            let columns = min(fileCount, 3)
+            let rows = Int(ceil(Double(fileCount) / Double(columns)))
+            
+            for (index, fileDict) in files.enumerated() {
+                let col = index % columns
+                let row = index / columns
+                let cellWidth = highlightWidth / Float(columns)
+                let cellDepth = highlightDepth / Float(rows)
+                let xOffset = (Float(col) - Float(columns - 1) / 2) * cellWidth
+                let zOffset = (Float(row) - Float(rows - 1) / 2) * cellDepth
+                
+                let filePosition = SIMD3<Float>(xOffset, 0.02, zOffset)
+                
+                let fileMesh = MeshResource.generateBox(size: SIMD3<Float>(0.08, 0.002, 0.08))
+                let fileMaterial = SimpleMaterial(color: .gray, isMetallic: true)
+                let fileEntity = ModelEntity(mesh: fileMesh, materials: [fileMaterial])
+                
+                
+                // Enable input and physics
+                fileEntity.components.set(InputTargetComponent(allowedInputTypes: .indirect))
+                fileEntity.generateCollisionShapes(recursive: true)
+                
+                let physicsMaterial = PhysicsMaterialResource.generate(friction: 0.8, restitution: 0.1)
+                fileEntity.components.set(
+                    PhysicsBodyComponent(
+                        shapes: fileEntity.collision!.shapes,
+                        mass: 1.0,
+                        material: physicsMaterial,
+                        mode: .dynamic
+                    )
+                )
+                fileEntity.physicsBody?.linearDamping = 10.0
+                fileEntity.physicsBody?.angularDamping = 10.0
+                fileEntity.components.set(GroundingShadowComponent(castsShadow: true))
+                fileEntity.components.set(HoverEffectComponent())
+                
+                // Add preview image if present
+                if let previewName = fileDict["fileLocation"],
+                   let image = UIImage(named: previewName),
+                   let cgImage = image.cgImage,
+                   let textureResource = try? await TextureResource(image: cgImage, options: .init(semantic: nil)) {
+                    
+                    var previewMaterial = PhysicallyBasedMaterial()
+                    
+                    previewMaterial.baseColor = PhysicallyBasedMaterial.BaseColor(
+                        tint: .white,
+                        texture: .init(textureResource)
+                    )
+                    
+                    let previewPlane = ModelEntity(
+                        mesh: .generatePlane(width: 0.075, height: 0.075),
+                        materials: [previewMaterial]
+                    )
+                    
+                    fileEntity.addChild(previewPlane)
+                    
+                    let previewOffset = SIMD3<Float>(0, 0.003, 0)
+                    previewPlane.setPosition(previewOffset, relativeTo: fileEntity)
+                    
+                    let upwardRotation = simd_quatf(angle: -Float.pi/2, axis: SIMD3<Float>(1, 0, 0))
+                    previewPlane.transform.rotation = upwardRotation
+                }
+                
+                // Add label if present
+                if let fileLabel = fileDict["label"] {
+                    //                Task {
+                    //                    await self.showLabel(for: fileEntity, with: fileLabel, color: UIColor(.white).withAlphaComponent(0.8))
+                    //                }
+                    // GazeTracking Label
+                    fileEntity.components.set(LabelComponent(text: fileLabel, color: .white.withAlphaComponent(0.5)))
+                    
+                }
+                
+                
+                
+                
+                highlightEntity.addChild(fileEntity)
+                
+                fileEntity.setPosition(filePosition, relativeTo: highlightEntity) // Position relative to the highlight, not world space
+                fileEntity.transform.rotation = simd_quatf()
+            }
         }
     }
     
@@ -518,48 +557,48 @@ struct LabelComponent: Component {
     
     // GAZE TRACKING
     func runGazeDetectionLoop() async {
-        // Wait for world tracking to be running
-        while worldTracking.state != .running {
-            print("⏳ Waiting for worldTracking to start...")
-            try? await Task.sleep(nanoseconds: 200_000_000)
-        }
-
-        print("✅ worldTracking is now running. Starting gaze detection loop.")
-        
-        var lastLabelShownTime: TimeInterval = 0
-        let labelCooldown: TimeInterval = 0
-
-        while true {
-            if let transform = worldTracking.queryDeviceAnchor(atTimestamp: CACurrentMediaTime())?.originFromAnchorTransform {
-                let cameraPosition = simd_make_float3(transform.columns.3)
-                let pitchDownAngle: Float = -.pi / 14  // ~13 degrees downward offset
-                let right = simd_make_float3(transform.columns.0)
-                let downwardRotation = simd_quatf(angle: pitchDownAngle, axis: right)
-                var forward = -simd_make_float3(transform.columns.2)
-                forward = simd_normalize(downwardRotation.act(forward))
-
-                if let result = contentEntity.scene?.raycast(origin: cameraPosition, direction: forward, length: 2.0).first {
-                    let entity = result.entity
-                    print("👁 Gaze hit entity: \(entity.name)")
-                    if let labelComponent = entity.components[LabelComponent.self] {
-                        let currentTime = Date().timeIntervalSince1970
-                        if currentTime - lastLabelShownTime > labelCooldown {
-                            lastLabelShownTime = currentTime
-                            print("🟢 LabelComponent found: \(labelComponent.text)")
-                            await showLabel(for: entity as! ModelEntity, with: labelComponent.text, color: labelComponent.color, height: 0.1)
-                        } else {
-                            print("⏸ Label cooldown active")
-                        }
-                    } else {
-                        print("⚠️ No LabelComponent on hit entity")
-                    }
-                } else {
-                    print("👁 Nothing hit by gaze raycast")
-                }
-            }
-
-            try? await Task.sleep(nanoseconds: 250_000_000)
-        }
+//        // Wait for world tracking to be running
+//        while worldTracking.state != .running {
+//            print("⏳ Waiting for worldTracking to start...")
+//            try? await Task.sleep(nanoseconds: 200_000_000)
+//        }
+//
+//        print("✅ worldTracking is now running. Starting gaze detection loop.")
+//
+//        var lastLabelShownTime: TimeInterval = 0
+//        let labelCooldown: TimeInterval = 0
+//
+//        while true {
+//            if let transform = worldTracking.queryDeviceAnchor(atTimestamp: CACurrentMediaTime())?.originFromAnchorTransform {
+//                let cameraPosition = simd_make_float3(transform.columns.3)
+//                let pitchDownAngle: Float = -.pi / 14  // ~13 degrees downward offset
+//                let right = simd_make_float3(transform.columns.0)
+//                let downwardRotation = simd_quatf(angle: pitchDownAngle, axis: right)
+//                var forward = -simd_make_float3(transform.columns.2)
+//                forward = simd_normalize(downwardRotation.act(forward))
+//
+//                if let result = contentEntity.scene?.raycast(origin: cameraPosition, direction: forward, length: 2.0).first {
+//                    let entity = result.entity
+//                    print("👁 Gaze hit entity: \(entity.name)")
+//                    if let labelComponent = entity.components[LabelComponent.self] {
+//                        let currentTime = Date().timeIntervalSince1970
+//                        if currentTime - lastLabelShownTime > labelCooldown {
+//                            lastLabelShownTime = currentTime
+//                            print("🟢 LabelComponent found: \(labelComponent.text)")
+//                            await showLabel(for: entity as! ModelEntity, with: labelComponent.text, color: labelComponent.color, height: 0.1)
+//                        } else {
+//                            print("⏸ Label cooldown active")
+//                        }
+//                    } else {
+//                        print("⚠️ No LabelComponent on hit entity")
+//                    }
+//                } else {
+//                    print("👁 Nothing hit by gaze raycast")
+//                }
+//            }
+//
+//            try? await Task.sleep(nanoseconds: 250_000_000)
+//        }
     }
 }
 
@@ -576,6 +615,23 @@ extension Collection where Element == Entity {
     }
 }
 
+extension Entity {
+    func findEntity(byLabel searchLabel: String) -> ModelEntity? {
+        // Check if self has a LabelComponent with the matching text.
+        if let labelComponent = self.components[LabelComponent.self],
+           labelComponent.text == searchLabel,
+           let modelEntity = self as? ModelEntity {
+            return modelEntity
+        }
+        // Recursively search through children.
+        for child in self.children {
+            if let found = child.findEntity(byLabel: searchLabel) {
+                return found
+            }
+        }
+        return nil
+    }
+}
 
 
 
