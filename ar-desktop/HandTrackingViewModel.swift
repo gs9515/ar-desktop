@@ -20,6 +20,42 @@ struct LabelComponent: Component {
     var color: UIColor
 }
 
+struct FileMetadataComponent: Component {
+    var label: String
+    var fileType: String
+    var preview: String
+    var fileLocation: String
+}
+
+struct VirtualFileView: View {
+    let label: String
+    let fileType: String
+    let fileLocation: String
+
+    var body: some View {
+        ZStack {
+            Color(.systemBackground)
+                .opacity(0.8)
+                .cornerRadius(12)
+            VStack(spacing: 20) {
+                Text("File Viewer")
+                    .font(.title)
+                    .padding(.top)
+                Text("Label: \(label)")
+                Text("Type: \(fileType)")
+                // You can add a preview image or other file details here.
+                Button("Close") {
+                    // Implement your dismiss logic here.
+                }
+                .padding(.bottom)
+            }
+            .padding()
+        }
+        .frame(width: 300, height: 400)
+        .shadow(radius: 10)
+    }
+}
+
 @MainActor class HandTrackingViewModel: ObservableObject {
     @Published var objectsPlaced: Int = 0
     @Published var desktopCenter: SIMD3<Float> = SIMD3<Float>(0, 0, 0)
@@ -437,11 +473,6 @@ struct LabelComponent: Component {
             
             groupContainer.addChild(highlightEntity)
             
-            // Add a label above this highlight, also along the table -- the background can be of color color
-            //        Task {
-            //            await showLabel(for: highlightEntity, with: label, color: UIColor(color).withAlphaComponent(0.5))
-            //        }
-            
             // Arrange file icons in a grid within the highlight area
             let fileCount = files.count
             let columns = min(fileCount, 3)
@@ -514,17 +545,47 @@ struct LabelComponent: Component {
                     //                }
                     // GazeTracking Label
                     fileEntity.components.set(LabelComponent(text: fileLabel, color: .white.withAlphaComponent(0.5)))
-                    
+                }
+                
+                // Attach file metadata component if available
+                if let fileLabel = fileDict["label"],
+                   let fileType = fileDict["fileType"],
+                   let preview = fileDict["preview"],
+                   let fileLocation = fileDict["fileLocation"] {
+                    fileEntity.components.set(FileMetadataComponent(label: fileLabel, fileType: fileType, preview: preview, fileLocation: fileLocation))
                 }
                 
                 
-                
-                
                 highlightEntity.addChild(fileEntity)
-                
-                fileEntity.setPosition(filePosition, relativeTo: highlightEntity) // Position relative to the highlight, not world space
+                // Position relative to the highlight, not world space
+                fileEntity.setPosition(filePosition, relativeTo: highlightEntity)
                 fileEntity.transform.rotation = simd_quatf()
             }
+        }
+    }
+    
+    func openFile(label: String, fileType: String, fileLocation: String)
+    async {
+        // Determine which hand pinched
+        guard let pinchHand = lastPinchChirality else {
+            print("No pinch detected")
+            return
+        }
+        
+        // ONLY SHOW LABEL IF PINCHED WITH LEFT HAND
+        if pinchHand == .left {
+            print("LEFT HAND PINCH")
+            if let entityToAnchor = contentEntity.findEntity(byLabel: label) {
+                if let labelComponent = entityToAnchor.components[LabelComponent.self] {
+                    await showLabel(for: entityToAnchor, with: labelComponent.text, color: labelComponent.color, height: 0.1)
+                }
+            }
+            
+            if let labelComponent = currentGroupEntity?.components[LabelComponent.self] {
+                await showLabel(for: currentGroupEntity as! ModelEntity, with: labelComponent.text, color: labelComponent.color, height: 0.1)
+            }
+        } else {
+            // OPEN THE FILE at (fileLocation) IN A 2D normal swift window above the object
         }
     }
     
@@ -632,123 +693,3 @@ extension Entity {
         return nil
     }
 }
-
-
-
-//func imageFromPDF(url: URL) -> UIImage? {
-//    guard let document = PDFDocument(url: url),
-//          let page = document.page(at: 0) else {
-//        print("Failed to load PDF")
-//        return nil
-//    }
-//
-//    let pageRect = page.bounds(for: .mediaBox)
-//    let renderer = UIGraphicsImageRenderer(size: pageRect.size)
-//
-//    // Create the image with proper orientation
-//    let image = renderer.image { context in
-//        // Clear the background with white
-//        UIColor.white.set()
-//        context.fill(pageRect)
-//
-//        // Save the graphics state
-//        context.cgContext.saveGState()
-//
-//        // Flip the context vertically to correct the orientation
-//        // PDFs have origin at bottom-left, UIKit has origin at top-left
-//        context.cgContext.translateBy(x: 0, y: pageRect.size.height)
-//        context.cgContext.scaleBy(x: 1.0, y: -1.0)
-//
-//        // Draw the PDF page in the properly transformed context
-//        page.draw(with: .mediaBox, to: context.cgContext)
-//
-//        // Restore the graphics state
-//        context.cgContext.restoreGState()
-//    }
-//
-//    return image
-//}
-
-
-
-//func placeFile(named filename: String) async {
-//    guard let leftFingerPosition = fingerEntities[.left]?.transform.translation else { return }
-//    let placementLocation = leftFingerPosition + SIMD3<Float>(0, -0.05, 0)
-//
-//    // Load PDF and generate image with corrected orientation
-//    guard let pdfURL = Bundle.main.url(forResource: filename, withExtension: "pdf"),
-//          let pdfImage = imageFromPDF(url: pdfURL),
-//          let cgImage = pdfImage.cgImage else {
-//        print("PDF processing error")
-//        return
-//    }
-//
-//    // Create a texture from the PDF image
-//    guard let textureResource = try? await TextureResource(image: cgImage, options: .init(semantic: nil)) else {
-//        print("Texture conversion error")
-//        return
-//    }
-//
-//    var textMaterial = UnlitMaterial()
-//    textMaterial.color = .init(tint: .white, texture: .init(textureResource))
-//
-//    // Match box proportions to PDF aspect
-//    let imageSize = pdfImage.size
-//    let aspectRatio = imageSize.height / imageSize.width
-//    let desiredWidth: Float = 0.2
-//    let desiredHeight: Float = desiredWidth * Float(aspectRatio)
-//
-//    // "Paper" box
-//    let fileEntity = ModelEntity(
-//        mesh: .generateBox(size: SIMD3<Float>(desiredWidth, 0.002, desiredHeight)),
-//        materials: [SimpleMaterial(color: .white, isMetallic: false)],
-//        collisionShape: .generateBox(size: SIMD3<Float>(desiredWidth, 0.002, desiredHeight)),
-//        mass: 1.0
-//    )
-//    fileEntity.setPosition(placementLocation, relativeTo: nil)
-//
-//    // PDF plane
-//    let textPlane = ModelEntity(
-//        mesh: .generatePlane(width: desiredWidth, height: desiredHeight),
-//        materials: [textMaterial]
-//    )
-//    fileEntity.addChild(textPlane)
-//
-//    // Position the plane slightly above the top face of the box
-//    textPlane.setPosition(SIMD3<Float>(0, 0.0011, 0), relativeTo: fileEntity)
-//
-//    // Rotate the plane to face upward
-//    textPlane.transform.rotation = simd_quatf(angle: -Float.pi/2, axis: SIMD3<Float>(1, 0, 0))
-//
-//    contentEntity.addChild(fileEntity)
-//}
-
-//     Example gaze detection trigger:
-//    func onGaze(at object: ModelEntity, label: String) async {
-//         await showLabel(for: object, with: label)
-//    }
-//
-//    func collectDesktopCenterOnPinch() async -> SIMD3<Float>? {
-//        for await update in handTracking.anchorUpdates {
-//            let handAnchor = update.anchor
-//            guard handAnchor.isTracked, handAnchor.chirality == .right else { continue }
-//
-//            let thumbTip = handAnchor.handSkeleton?.joint(.thumbTip)
-//            let indexTip = handAnchor.handSkeleton?.joint(.indexFingerTip)
-//
-//            if let thumb = thumbTip, let index = indexTip,
-//               thumb.isTracked, index.isTracked {
-//                let thumbPos = simd_make_float3(handAnchor.originFromAnchorTransform * thumb.anchorFromJointTransform.columns.3)
-//                let indexPos = simd_make_float3(handAnchor.originFromAnchorTransform * index.anchorFromJointTransform.columns.3)
-//
-//                let distance = simd_distance(thumbPos, indexPos)
-//                if distance < 0.02 { // Pinch detected
-//                    if let leftFingerTip = fingerEntities[.left]?.transform.translation {
-//                        print("✅ Desktop center set at: \(leftFingerTip)")
-//                        return leftFingerTip
-//                    }
-//                }
-//            }
-//        }
-//        return nil
-//    }

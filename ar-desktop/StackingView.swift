@@ -21,6 +21,7 @@ struct ObjectData {
 struct File {
     var label: String
     var fileType: String
+    var preview: String
     var fileLocation: String
 }
 
@@ -88,23 +89,23 @@ struct StackingView: View {
     @State var currentIndex = 0
     @State var objectsToPlace: [ObjectData] = [
         ObjectData(materialName: "Red_v2", label: "Communication", color: hexStringToUIColor(hex: "#FF4D0D"), files: [
-            File(label: "Messages", fileType: "application", fileLocation: "messages.png"),
-            File(label: "WhatsApp", fileType: "application", fileLocation: "whatsapp.png"),
-            File(label: "Mail", fileType: "application", fileLocation: "mail.png"),
-            File(label: "Letter from Mom", fileType: "pdf", fileLocation: "notes.png"),
-            File(label: "Letter from Bobby", fileType: "pdf", fileLocation: "notes.png")
+            File(label: "Messages", fileType: "application", preview:"messages.png", fileLocation: "messages.png"),
+            File(label: "WhatsApp", fileType: "application", preview:"whatsapp.png", fileLocation: "whatsapp.png"),
+            File(label: "Mail", fileType: "application", preview:"mail.png", fileLocation: "mail.png"),
+            File(label: "Letter from Mom", fileType: "pdf", preview:"notes.png", fileLocation: "notes.png"),
+            File(label: "Letter from Bobby", fileType: "pdf", preview:"notes.png", fileLocation: "notes.png")
         ]),
         ObjectData(materialName: "Yellow_v2", label: "Office", color: hexStringToUIColor(hex:"#F4FE04"), files: [
-            File(label: "Word", fileType: "application", fileLocation: "/src/word"),
+            File(label: "Word", fileType: "application", preview:"", fileLocation: "/src/word"),
         ]),
         ObjectData(materialName: "Green_v2", label: "Browsers", color: hexStringToUIColor(hex:"#2ABB5D"), files: [
-            File(label: "Chrome", fileType: "application", fileLocation: "/src/chrome"),
+            File(label: "Chrome", fileType: "application", preview:"", fileLocation: "/src/chrome"),
         ]),
         ObjectData(materialName: "Blue_v2", label: "Memories", color: hexStringToUIColor(hex:"#5074FD"), files: [
-            File(label: "Dad", fileType: "photo", fileLocation: "/src/dad.jpg"),
+            File(label: "Dad", fileType: "photo", preview:"", fileLocation: "/src/dad.jpg"),
         ]),
         ObjectData(materialName: "Purple_v2", label: "Documents", color: hexStringToUIColor(hex:"#AE69FB"), files: [
-            File(label: "Independent Work Proposal", fileType: "file", fileLocation: "/src/iw_prop.pdf"),
+            File(label: "Independent Work Proposal", fileType: "file", preview:"", fileLocation: "/src/iw_prop.pdf"),
         ]),
     ]
     
@@ -154,20 +155,29 @@ struct StackingView: View {
             }
         }
         .gesture(
-            // Listen for when to open the group
             SpatialTapGesture()
                 .targetedToAnyEntity()
                 .onEnded { value in
                     Task {
-                        if let entity = value.entity as? ModelEntity, let metadata = entity.customMetadata {
-                            await model.openGroup(label: metadata.label,
-                                                  color: metadata.color,
-                                                  materialName: metadata.materialName,
-                                                  files: metadata.files.map { [
-                                                      "label": $0.label,
-                                                      "fileType": $0.fileType,
-                                                      "fileLocation": $0.fileLocation
-                                                  ] })
+                        if let entity = value.entity as? ModelEntity {
+                            // Check if this entity is a file (has file metadata)
+                            if let fileMetadata = entity.components[FileMetadataComponent.self] {
+                                // It's a file entity
+                                await model.openFile(label: fileMetadata.label,
+                                                     fileType: fileMetadata.fileType,
+                                                     fileLocation: fileMetadata.fileLocation)
+                            } else if let groupMetadata = entity.customMetadata {
+                                // It's a group entity
+                                await model.openGroup(label: groupMetadata.label,
+                                                      color: groupMetadata.color,
+                                                      materialName: groupMetadata.materialName,
+                                                      files: groupMetadata.files.map { [
+                                                          "label": $0.label,
+                                                          "fileType": $0.fileType,
+                                                          "preview": $0.preview,
+                                                          "fileLocation": $0.fileLocation
+                                                      ] })
+                            }
                         }
                     }
                 }
