@@ -95,8 +95,8 @@ struct StackingView: View {
             File(label: "Messages", fileType: "application", preview:"messages.png", fileLocation: "messages.png"),
             File(label: "WhatsApp", fileType: "application", preview:"whatsapp.png", fileLocation: "whatsapp.png"),
             File(label: "Mail", fileType: "application", preview:"mail.png", fileLocation: "mail.png"),
-            File(label: "Letter from Mom", fileType: "pdf", preview:"notes.png", fileLocation: "notes.png"),
-            File(label: "Letter from Bobby", fileType: "pdf", preview:"notes.png", fileLocation: "notes.png")
+            File(label: "Letter to Grandad", fileType: "pdf", preview:"notes.png", fileLocation: "Letter_to_Grandad.pdf"),
+            File(label: "Emergency Phone Numbers", fileType: "pdf", preview:"notes.png", fileLocation: "OKC_Emergencies.pdf")
         ]),
         ObjectData(materialName: "Yellow_v2", label: "Office", color: hexStringToUIColor(hex:"#F4FE04"), files: [
             File(label: "Word", fileType: "application", preview:"", fileLocation: "/src/word"),
@@ -105,7 +105,9 @@ struct StackingView: View {
             File(label: "Chrome", fileType: "application", preview:"", fileLocation: "/src/chrome"),
         ]),
         ObjectData(materialName: "Blue_v2", label: "Memories", color: hexStringToUIColor(hex:"#5074FD"), files: [
-            File(label: "Dad", fileType: "photo", preview:"", fileLocation: "/src/dad.jpg"),
+            File(label: "Northern Lights", fileType: "photo", preview:"northern_lights.jpeg", fileLocation: "northern_lights.jpeg"),
+            File(label: "Felix", fileType: "photo", preview:"felix1.JPG", fileLocation: "felix1.JPG"),
+            File(label: "Foster Kitty", fileType: "photo", preview:"foster.jpeg", fileLocation: "foster.jpeg"),
         ]),
         ObjectData(materialName: "Purple_v2", label: "Documents", color: hexStringToUIColor(hex:"#AE69FB"), files: [
             File(label: "Independent Work Proposal", fileType: "file", preview:"", fileLocation: "/src/iw_prop.pdf"),

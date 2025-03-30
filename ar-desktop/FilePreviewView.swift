@@ -86,6 +86,7 @@ struct PDFKitRepresentedView: UIViewRepresentable {
 }
 
 
+
 struct ImagePreview: View {
     let fileLocation: String
 
@@ -101,16 +102,23 @@ struct ImagePreview: View {
 }
 
 
+
 struct AppPreview: View {
     let label: String
     let fileLocation: String
 
     var body: some View {
         ZStack {
-            // Simulate app color theme (or random)
-            Rectangle()
-                .fill(primaryColor(for: fileLocation))
-                .ignoresSafeArea()
+            if let image = UIImage(named: fileLocation) {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFill()
+                    .ignoresSafeArea()
+            } else {
+                Rectangle()
+                    .fill(primaryColor(for: fileLocation))
+                    .ignoresSafeArea()
+            }
 
             VStack {
                 Image(systemName: "app.fill")
@@ -127,9 +135,37 @@ struct AppPreview: View {
         }
     }
 
-    func primaryColor(for _: String) -> Color {
-        // Replace with real image color analysis later if needed
-        return Color.blue.opacity(0.9)
+    func primaryColor(for fileLocation: String) -> Color {
+        guard let image = UIImage(named: fileLocation),
+              let cgImage = image.cgImage else {
+            return Color.blue.opacity(0.9)
+        }
+
+        let width = 1
+        let height = 1
+        let bitmapInfo = CGImageAlphaInfo.premultipliedLast.rawValue
+        let colorSpace = CGColorSpaceCreateDeviceRGB()
+        var pixelData = [UInt8](repeating: 0, count: 4)
+
+        guard let context = CGContext(data: &pixelData,
+                                      width: width,
+                                      height: height,
+                                      bitsPerComponent: 8,
+                                      bytesPerRow: 4,
+                                      space: colorSpace,
+                                      bitmapInfo: bitmapInfo) else {
+            return Color.blue.opacity(0.9)
+        }
+
+        context.draw(cgImage,
+                     in: CGRect(x: 0, y: 0, width: width, height: height))
+
+        let red = Double(pixelData[0]) / 255.0
+        let green = Double(pixelData[1]) / 255.0
+        let blue = Double(pixelData[2]) / 255.0
+        let alpha = Double(pixelData[3]) / 255.0
+
+        return Color(.sRGB, red: red, green: green, blue: blue, opacity: alpha)
     }
 }
 

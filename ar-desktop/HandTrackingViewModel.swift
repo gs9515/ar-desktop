@@ -520,7 +520,7 @@ struct FileMetadataComponent: Component {
                 fileEntity.components.set(HoverEffectComponent())
                 
                 // Add preview image if present
-                if let previewName = fileDict["fileLocation"],
+                if let previewName = fileDict["preview"],
                    let image = UIImage(named: previewName),
                    let cgImage = image.cgImage,
                    let textureResource = try? await TextureResource(image: cgImage, options: .init(semantic: nil)) {
