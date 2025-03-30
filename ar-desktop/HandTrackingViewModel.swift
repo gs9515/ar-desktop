@@ -323,34 +323,6 @@ import Combine
                 }
             }
         }
-//
-//        if let closest = closestEntity {
-//            let worldPosition = closest.position(relativeTo: nil)
-//            print("Found table surface at entity: \(closest) with horizontal distance: \(minHorizontalDistance)")
-//            print("Table surface world position: \(worldPosition)")
-//
-//            // Create a debug plane marker without the BillboardComponent
-//            let debugPlane = ModelEntity(
-//                mesh: .generatePlane(width: 1.0, depth: 1.0),  // increased size for better visibility
-//                materials: [SimpleMaterial(color: .green, isMetallic: false)]
-//            )
-//            // Increase the vertical offset to avoid occlusion by the sphere
-//            let debugPlanePosition = worldPosition + SIMD3<Float>(0, 0.05, 0)
-//            debugPlane.setPosition(debugPlanePosition, relativeTo: nil)
-//            contentEntity.addChild(debugPlane)
-//            print("Debug plane added at world position: \(debugPlanePosition)")
-//
-//            // Create a debug sphere marker at the table center
-//            let debugSphere = ModelEntity(
-//                mesh: .generateSphere(radius: 0.1),
-//                materials: [SimpleMaterial(color: .red, isMetallic: false)]
-//            )
-//            debugSphere.setPosition(worldPosition, relativeTo: nil)
-//            contentEntity.addChild(debugSphere)
-//            print("Debug sphere added at world position: \(worldPosition)")
-//        } else {
-//            print("No table surface detected near point: \(point)")
-//        }
 
         return closestEntity
     }
@@ -368,17 +340,7 @@ import Combine
         // If a group is already open, remove it
         currentGroupEntity?.removeFromParent()
         currentGroupEntity = nil
-        
-        //        guard let fingerPosition = fingerEntities[.left]?.transform.translation else {
-        //            print("Fingertip position not available.")
-        //            return
-        //        }
-        //        guard let tableSurface = findTableSurface(near: fingerPosition) else {
-        //            print("No horizontal table surface found near the fingertip.")
-        //            return
-        //        }
-        //        desktopCenter = tableSurface.position(relativeTo: nil)
-        
+
         // Create a highlight entity as a plane (dimensions 4 x 5 units) for now;
         // later, you can modify this to generate an oval shape
         let highlightWidth: Float = 2.5/6
@@ -416,11 +378,6 @@ import Combine
             await showLabel(for: highlightEntity, with: label, color: UIColor(color).withAlphaComponent(0.5))
         }
         
-        
-        
-        // Now, add all the files in files to the highlight area
-        // We'll arrange the file icons in a grid within the highlight area
-        //        let fileYAbovePlane: Float = 0.002  // Slightly above table plane
         // Arrange file icons in a grid within the highlight area
         let fileCount = files.count
         let columns = min(fileCount, 3)
@@ -434,14 +391,11 @@ import Combine
             let xOffset = (Float(col) - Float(columns - 1) / 2) * cellWidth
             let zOffset = (Float(row) - Float(rows - 1) / 2) * cellDepth
 
-            
-//            let filePosition = SIMD3<Float>(xOffset, -0.75+0.1, zOffset+0.5-0.001)
-            let filePosition = SIMD3<Float>(xOffset, 0.02, zOffset) // Simple, consistent offset above the plane
+            let filePosition = SIMD3<Float>(xOffset, 0.02, zOffset)
             
             let fileMesh = MeshResource.generateBox(size: SIMD3<Float>(0.08, 0.002, 0.08))
             let fileMaterial = SimpleMaterial(color: .gray, isMetallic: true)
             let fileEntity = ModelEntity(mesh: fileMesh, materials: [fileMaterial])
-//            fileEntity.setPosition(filePosition + desktopCenter, relativeTo: nil)
             
             // Enable input and physics
             fileEntity.components.set(InputTargetComponent(allowedInputTypes: .indirect))
@@ -500,19 +454,6 @@ import Combine
             fileEntity.setPosition(filePosition, relativeTo: highlightEntity) // Position relative to the highlight, not world space
             fileEntity.transform.rotation = simd_quatf()
         }
-        
-        // Add a close button to remove the group
-//        let closeButtonSize: Float = 0.05
-//        let closeButtonMesh = MeshResource.generatePlane(width: closeButtonSize, height: closeButtonSize)
-//        let closeButtonMaterial = SimpleMaterial(color: .red, isMetallic: false)
-//        let closeButtonEntity = ModelEntity(mesh: closeButtonMesh, materials: [closeButtonMaterial])
-//        closeButtonEntity.setPosition(
-//            SIMD3<Float>(highlightWidth / 2 - closeButtonSize / 2, 0.001, highlightDepth / 2 - closeButtonSize / 2),
-//            relativeTo: highlightEntity
-//        )
-//        closeButtonEntity.components.set(InputTargetComponent())
-//        // TODO: Attach interaction to remove currentGroupEntity when tapped
-//        highlightEntity.addChild(closeButtonEntity)
     }
     
     
