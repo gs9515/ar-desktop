@@ -553,20 +553,20 @@ struct FileMetadataComponent: Component {
                 fileGroupEntity.components.set(InputTargetComponent(allowedInputTypes: [.indirect, .direct]))
                 
                 // Add physics to the group entity
-                let physicsMaterial = PhysicsMaterialResource.generate(friction: 0.8, restitution: 0.1)
+                let physicsMaterial = PhysicsMaterialResource.generate(friction: 0.9, restitution: 0.0) // No bounce
                 let physicsComponent = PhysicsBodyComponent(
                     massProperties: .init(mass: 3.0),
                     material: physicsMaterial,
                     mode: .dynamic
                 )
                 fileGroupEntity.components.set(physicsComponent)
-                
-                // Ensure the physics body has proper settings
+
+                // Set damping and gravity
                 if var physicsBody = fileGroupEntity.components[PhysicsBodyComponent.self] {
-                    physicsBody.linearDamping = 0.5  // Lower for more movement
-                    physicsBody.angularDamping = 0.5
-                    physicsBody.isAffectedByGravity = true  // Make sure gravity is enabled
-                    physicsBody.mode = .dynamic  // Ensure it's set to dynamic
+                    physicsBody.linearDamping = 2.0   // More damping = slower movement
+                    physicsBody.angularDamping = 2.0
+                    physicsBody.isAffectedByGravity = true
+                    physicsBody.mode = .dynamic
                     fileGroupEntity.components.set(physicsBody)
                 }
                 
