@@ -62,6 +62,8 @@ struct FileMetadataComponent: Component {
     @Published var openWindowAction: ((String) -> Void)? = nil
     @Published var openWindowWithTransform: ((String, Transform) -> Void)? = nil
     @Published var dismissWindowAction: ((String) -> Void)? = nil
+    
+    let ROUNDED_COURNERS = Float(0.02)
 
     // Hand tracking
     private let session = ARKitSession()
@@ -453,7 +455,7 @@ struct FileMetadataComponent: Component {
             // later, you can modify this to generate an oval shape
             let highlightWidth: Float = 2.5/6
             let highlightDepth: Float = 1.5/6
-            let highlightMesh = MeshResource.generatePlane(width: highlightWidth, depth: highlightDepth)
+            let highlightMesh = MeshResource.generatePlane(width: highlightWidth, depth: highlightDepth, cornerRadius: ROUNDED_COURNERS)
             
             // Create a simple material for the highlight. Later you can add custom loading logic based on materialName.
             // LOAD MATERIAL
@@ -495,79 +497,107 @@ struct FileMetadataComponent: Component {
                 let zOffset = (Float(row) - Float(rows - 1) / 2) * cellDepth
                 
                 let filePosition = SIMD3<Float>(xOffset, 0.02, zOffset)
-                
-                let fileMesh = MeshResource.generateBox(size: SIMD3<Float>(0.08, 0.002, 0.08))
+
+                guard let loadedEntity = try? await Entity(named: "RoundedBox", in: realityKitContentBundle),
+                      let referenceEntity = loadedEntity.findEntity(named: "Geometry") as? ModelEntity else {
+                    print("❌ Failed to load or find 'Geometry' in RoundedBox")
+                    return
+                }
+
+                let sharedMesh = referenceEntity.model!.mesh
                 let fileMaterial = SimpleMaterial(color: .gray, isMetallic: true)
-                let fileEntity = ModelEntity(mesh: fileMesh, materials: [fileMaterial])
+                let fileEntity = ModelEntity(mesh: sharedMesh, materials: [fileMaterial])
+                fileEntity.name = "📄 FileEntity \(index)"
+                fileEntity.scale = SIMD3<Float>(repeating: 0.0003)
+                fileEntity.transform.rotation = simd_quatf(angle: .pi / 2, axis: SIMD3<Float>(1, 0, 0))
                 
-                
-                // Enable input and physics
-                fileEntity.components.set(InputTargetComponent(allowedInputTypes: .indirect))
-                fileEntity.generateCollisionShapes(recursive: true)
-                
-                let physicsMaterial = PhysicsMaterialResource.generate(friction: 0.8, restitution: 0.1)
-                fileEntity.components.set(
-                    PhysicsBodyComponent(
-                        shapes: fileEntity.collision!.shapes,
-                        mass: 1.0,
-                        material: physicsMaterial,
-                        mode: .dynamic
-                    )
+                // Create a parent group entity WITHOUT a visible mesh
+                let fileGroupEntity = ModelEntity()  // No mesh here
+                fileGroupEntity.name = "📦 FileGroupEntity \(index)"
+                fileGroupEntity.isEnabled = true
+
+                // Later, after adding children, add collision shapes explicitly
+                let collisionShape = ShapeResource.generateBox(width: 0.08, height: 0.01, depth: 0.08)
+                fileGroupEntity.collision = CollisionComponent(
+                    shapes: [collisionShape],
+                    mode: .default,
+                    filter: CollisionFilter(group: .default, mask: .all)
                 )
-                fileEntity.physicsBody?.linearDamping = 10.0
-                fileEntity.physicsBody?.angularDamping = 10.0
-                fileEntity.components.set(GroundingShadowComponent(castsShadow: true))
-                fileEntity.components.set(HoverEffectComponent())
                 
-                // Add preview image if present
+                // Attach file to the group
+                fileGroupEntity.addChild(fileEntity)
+
+                // Add preview if available
                 if let previewName = fileDict["preview"],
                    let image = UIImage(named: previewName),
                    let cgImage = image.cgImage,
                    let textureResource = try? await TextureResource(image: cgImage, options: .init(semantic: nil)) {
-                    
+
                     var previewMaterial = PhysicallyBasedMaterial()
-                    
                     previewMaterial.baseColor = PhysicallyBasedMaterial.BaseColor(
                         tint: .white,
                         texture: .init(textureResource)
                     )
-                    
+
                     let previewPlane = ModelEntity(
-                        mesh: .generatePlane(width: 0.075, height: 0.075),
+                        mesh: .generatePlane(width: 0.08, height: 0.08, cornerRadius: ROUNDED_COURNERS),
                         materials: [previewMaterial]
                     )
-                    
-                    fileEntity.addChild(previewPlane)
-                    
-                    let previewOffset = SIMD3<Float>(0, 0.003, 0)
-                    previewPlane.setPosition(previewOffset, relativeTo: fileEntity)
-                    
-                    let upwardRotation = simd_quatf(angle: -Float.pi/2, axis: SIMD3<Float>(1, 0, 0))
-                    previewPlane.transform.rotation = upwardRotation
+                    previewPlane.name = "🖼 PreviewPlane \(index)"
+                    previewPlane.setPosition(SIMD3<Float>(0, 0.001, 0), relativeTo: fileGroupEntity)
+                    previewPlane.transform.rotation = simd_quatf(angle: -.pi/2, axis: SIMD3<Float>(1, 0, 0))
+                    fileGroupEntity.addChild(previewPlane)
+                }
+
+                // ✅ Make the group entity fully interactive
+                fileGroupEntity.components.set(InputTargetComponent(allowedInputTypes: [.indirect, .direct]))
+                
+                // Add physics to the group entity
+                let physicsMaterial = PhysicsMaterialResource.generate(friction: 0.8, restitution: 0.1)
+                let physicsComponent = PhysicsBodyComponent(
+                    massProperties: .init(mass: 3.0),
+                    material: physicsMaterial,
+                    mode: .dynamic
+                )
+                fileGroupEntity.components.set(physicsComponent)
+                
+                // Ensure the physics body has proper settings
+                if var physicsBody = fileGroupEntity.components[PhysicsBodyComponent.self] {
+                    physicsBody.linearDamping = 0.5  // Lower for more movement
+                    physicsBody.angularDamping = 0.5
+                    physicsBody.isAffectedByGravity = true  // Make sure gravity is enabled
+                    physicsBody.mode = .dynamic  // Ensure it's set to dynamic
+                    fileGroupEntity.components.set(physicsBody)
                 }
                 
-                // Add label if present
+                // Add collision component explicitly
+                fileGroupEntity.collision = CollisionComponent(
+                    shapes: [.generateBox(width: 0.08, height: 0.01, depth: 0.08)],
+                    mode: .default,
+                    filter: CollisionFilter(group: .default, mask: .all)
+                )
+
+                fileGroupEntity.components.set(GroundingShadowComponent(castsShadow: true))
+                fileGroupEntity.components.set(HoverEffectComponent())
+                
+                // Attach metadata and label
                 if let fileLabel = fileDict["label"] {
-                    //                Task {
-                    //                    await self.showLabel(for: fileEntity, with: fileLabel, color: UIColor(.white).withAlphaComponent(0.8))
-                    //                }
-                    // GazeTracking Label
-                    fileEntity.components.set(LabelComponent(text: fileLabel, color: .white.withAlphaComponent(0.5)))
+                    fileGroupEntity.components.set(LabelComponent(text: fileLabel, color: .white.withAlphaComponent(0.5)))
                 }
-                
-                // Attach file metadata component if available
+
                 if let fileLabel = fileDict["label"],
                    let fileType = fileDict["fileType"],
                    let preview = fileDict["preview"],
                    let fileLocation = fileDict["fileLocation"] {
-                    fileEntity.components.set(FileMetadataComponent(label: fileLabel, fileType: fileType, preview: preview, fileLocation: fileLocation))
+                    fileGroupEntity.components.set(FileMetadataComponent(label: fileLabel, fileType: fileType, preview: preview, fileLocation: fileLocation))
                 }
                 
+                highlightEntity.addChild(fileGroupEntity)
+                // Position relative to the highlight
+                fileGroupEntity.setPosition(filePosition, relativeTo: highlightEntity)
                 
-                highlightEntity.addChild(fileEntity)
-                // Position relative to the highlight, not world space
-                fileEntity.setPosition(filePosition, relativeTo: highlightEntity)
-                fileEntity.transform.rotation = simd_quatf()
+                // Debug print to verify entity is set up correctly
+                print("✅ Added file group entity with physics: \(fileGroupEntity.name)")
             }
         }
     }
@@ -602,7 +632,7 @@ struct FileMetadataComponent: Component {
                 fileLocation: fileLocation
             )
 
-            let isWindowAlreadyOpen = model.isPreviewVisible
+//            let isWindowAlreadyOpen = model.isPreviewVisible
 
             if model.previewedFile == nil {
                 // First time opening — set content and open the window

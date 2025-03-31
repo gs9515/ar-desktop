@@ -26,7 +26,7 @@ struct FilePreviewView: View {
                 .font(.headline)
                 .padding()
                 .frame(maxWidth: .infinity)
-                .background(.ultraThinMaterial)
+                .background(.regularMaterial)
                 .overlay(Divider(), alignment: .bottom)
 
             // ✅ Dynamic content
@@ -109,32 +109,39 @@ struct AppPreview: View {
 
     var body: some View {
         ZStack {
-            if let image = UIImage(named: fileLocation) {
-                Image(uiImage: image)
-                    .resizable()
-                    .scaledToFill()
-                    .ignoresSafeArea()
-            } else {
-                Rectangle()
-                    .fill(primaryColor(for: fileLocation))
-                    .ignoresSafeArea()
-            }
+            // Slightly darkened primary color from image
+            primaryColor(for: fileLocation)
+                .brightness(-0.15) // Darkens the color slightly
+                .ignoresSafeArea()
 
-            VStack {
-                Image(systemName: "app.fill")
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 60, height: 60)
-                    .foregroundColor(.white)
-                    .padding()
+            VStack(spacing: 16) {
+                if let image = UIImage(named: fileLocation) {
+                    Image(uiImage: image)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 100, height: 100)
+                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .shadow(radius: 6)
+                } else {
+                    // Fallback in case image doesn't load
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(.white.opacity(0.2))
+                        .frame(width: 100, height: 100)
+                        .overlay(
+                            Image(systemName: "app.fill")
+                                .resizable()
+                                .scaledToFit()
+                                .frame(width: 40, height: 40)
+                                .foregroundColor(.white)
+                        )
+                }
 
-                Text("Opening \(label)...")
+                ProgressView("Opening \(label)...")
+                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
                     .font(.title2)
-                    .foregroundColor(.white)
             }
         }
     }
-
     func primaryColor(for fileLocation: String) -> Color {
         guard let image = UIImage(named: fileLocation),
               let cgImage = image.cgImage else {
