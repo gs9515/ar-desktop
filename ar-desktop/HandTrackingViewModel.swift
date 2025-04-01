@@ -28,33 +28,6 @@ struct FileMetadataComponent: Component {
     var fileLocation: String
 }
 
-//struct VirtualFileView: View {
-//    let label: String
-//    let fileType: String
-//    let fileLocation: String
-//
-//    var body: some View {
-//        ZStack {
-//            Color(.systemBackground)
-//                .opacity(0.8)
-//                .cornerRadius(12)
-//            VStack(spacing: 20) {
-//                Text("File Viewer")
-//                    .font(.title)
-//                    .padding(.top)
-//                Text("Label: \(label)")
-//                Text("Type: \(fileType)")
-//                Button("Close") {
-//                    // Add dismiss logic
-//                }
-//                .padding(.bottom)
-//            }
-//            .padding()
-//        }
-//        .frame(width: 300, height: 400)
-//        .shadow(radius: 10)
-//    }}
-
 @MainActor class HandTrackingViewModel: ObservableObject {
     @Published var objectsPlaced: Int = 0
     @Published var desktopCenter: SIMD3<Float> = SIMD3<Float>(0, 0, 0)
@@ -540,7 +513,7 @@ struct FileMetadataComponent: Component {
                     )
 
                     let previewPlane = ModelEntity(
-                        mesh: .generatePlane(width: 0.08, height: 0.08, cornerRadius: ROUNDED_COURNERS),
+                        mesh: .generatePlane(width: 0.08, height: 0.08, cornerRadius: 0.013),
                         materials: [previewMaterial]
                     )
                     previewPlane.name = "🖼 PreviewPlane \(index)"
@@ -555,7 +528,7 @@ struct FileMetadataComponent: Component {
                 // Add physics to the group entity
                 let physicsMaterial = PhysicsMaterialResource.generate(friction: 0.9, restitution: 0.0) // No bounce
                 let physicsComponent = PhysicsBodyComponent(
-                    massProperties: .init(mass: 3.0),
+                    massProperties: .init(mass: 1.0),
                     material: physicsMaterial,
                     mode: .dynamic
                 )

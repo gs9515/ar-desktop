@@ -100,17 +100,30 @@ struct StackingView: View {
         ]),
         ObjectData(materialName: "Yellow_v2", label: "Office", color: hexStringToUIColor(hex:"#F4FE04"), files: [
             File(label: "Word", fileType: "application", preview:"", fileLocation: "/src/word"),
+            File(label: "Excel", fileType: "application", preview:"", fileLocation: "/src/word"),
+            File(label: "Slack", fileType: "application", preview:"", fileLocation: "/src/word"),
+            File(label: "Photoshop", fileType: "application", preview:"", fileLocation: "/src/word"),
         ]),
         ObjectData(materialName: "Green_v2", label: "Browsers", color: hexStringToUIColor(hex:"#2ABB5D"), files: [
             File(label: "Chrome", fileType: "application", preview:"", fileLocation: "/src/chrome"),
+            File(label: "ChatGPT", fileType: "application", preview:"", fileLocation: "/src/chrome"),
+            File(label: "Spotify", fileType: "application", preview:"", fileLocation: "/src/chrome"),
         ]),
         ObjectData(materialName: "Blue_v2", label: "Memories", color: hexStringToUIColor(hex:"#5074FD"), files: [
-            File(label: "Northern Lights", fileType: "photo", preview:"northern_lights.jpeg", fileLocation: "northern_lights.jpeg"),
+            File(label: "Northern Lights", fileType: "photo", preview:"northern_lights.jp2", fileLocation: "northern_lights.jp2"),
             File(label: "Felix", fileType: "photo", preview:"felix1.JPG", fileLocation: "felix1.JPG"),
             File(label: "Foster Kitty", fileType: "photo", preview:"foster.jpeg", fileLocation: "foster.jpeg"),
+            File(label: "Great Aunts", fileType: "photo", preview:"Great_Aunts.jpg", fileLocation: "Great_Aunts.jpg"),
+            File(label: "Norway Airbnb", fileType: "photo", preview:"Norway.jpeg", fileLocation: "Norway.jpeg"),
+            File(label: "Biking by the River", fileType: "photo", preview:"bike.jpeg", fileLocation: "bike.jpeg"),
         ]),
         ObjectData(materialName: "Purple_v2", label: "Documents", color: hexStringToUIColor(hex:"#AE69FB"), files: [
-            File(label: "Independent Work Proposal", fileType: "file", preview:"", fileLocation: "/src/iw_prop.pdf"),
+            File(label: "Independent Work Proposal", fileType: "pdf", preview:"notes.png", fileLocation: "project_proposal.pdf"),
+            File(label: "Affirmations", fileType: "pdf", preview:"notes.png", fileLocation: "affirmations.pdf"),
+            File(label: "Beyond Being There", fileType: "pdf", preview:"notes.png", fileLocation: "Beyond_Being_There.pdf"),
+            File(label: "Programmable Bricks", fileType: "pdf", preview:"notes.png", fileLocation: "Programmable_Bricks.pdf"),
+            File(label: "My Mount Etna Adventure", fileType: "file", preview:"notes.png", fileLocation: "My_Mount_Etna_Adventure.docx"),
+            File(label: "Redefining Research Crowdsourcing", fileType: "pdf", preview:"notes.png", fileLocation: "Redefining_Research_Crowdsourcing.pdf"),
         ]),
     ]
     
