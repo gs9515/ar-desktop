@@ -6,6 +6,11 @@
 	<string>We track your hands so that you can interact with the scene.</string>
 	<key>NSWorldSensingUsageDescription</key>
 	<string>We track the world arround you so that you can interact with the files.</string>
+	<key>UIAppFonts</key>
+	<array>
+		<string>Karla-Regular.ttf</string>
+		<string>Karla-Bold.ttf</string>
+	</array>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationPreferredDefaultSceneSessionRole</key>

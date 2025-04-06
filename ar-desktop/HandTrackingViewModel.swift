@@ -75,7 +75,13 @@ struct FileMetadataComponent: Component {
     
     
     // FUNCTIONS
-    func showLabel(for object: ModelEntity, with text: String, color theColor: UIColor, height: Float = 0.2) async {let font = UIFont(name: "Karla-Bold", size: 0.2) ?? .systemFont(ofSize: 0.2)
+    func showLabel(for object: ModelEntity, with text: String, color theColor: UIColor, height: Float = 0.2) async {
+        let isFileEntity = object.components[FileMetadataComponent.self] != nil
+        let textColor: UIColor = isFileEntity ? .black : .white
+        let backwardsOffset: Float = isFileEntity ? -0.04 : 0.0
+        let fileScale: Float = isFileEntity ? 0.7 : 1.0
+        
+        let font = UIFont(name: "Karla-Bold", size: 0.2) ?? .systemFont(ofSize: 0.2*CGFloat(fileScale))
 
         let textEntity = ModelEntity()
         let mesh = MeshResource.generateText(
@@ -86,20 +92,20 @@ struct FileMetadataComponent: Component {
             alignment: .center,
             lineBreakMode: .byClipping // Avoid excessive background size
         )
-        let material = UnlitMaterial(color: .black)
+        let material = UnlitMaterial(color: textColor)
         textEntity.model = ModelComponent(mesh: mesh, materials: [material])
 
         // Adjust scale and compute true size
-        let scaleFactor: Float = 0.1
+        let scaleFactor: Float = 0.08*fileScale
         textEntity.scale = SIMD3<Float>(repeating: scaleFactor)
         let bounds = mesh.bounds
         let textWidth = bounds.extents.x * scaleFactor
         let textHeight = bounds.extents.y * scaleFactor
 
         // Create background based on exact text size
-        let backgroundWidth = textWidth + 0.01
-        let backgroundHeight = textHeight + 0.01
-        let backgroundMaterial = SimpleMaterial(color: theColor.withAlphaComponent(0.0), isMetallic: false)
+        let backgroundWidth = textWidth + 0.02*fileScale
+        let backgroundHeight = textHeight + 0.02*fileScale
+        let backgroundMaterial = SimpleMaterial(color: theColor.withAlphaComponent(0.8), isMetallic: false)
         let backgroundEntity = ModelEntity(
             mesh: .generatePlane(width: backgroundWidth, height: backgroundHeight, cornerRadius: 0.005),
             materials: [backgroundMaterial]
@@ -116,7 +122,7 @@ struct FileMetadataComponent: Component {
 
         // Position above the object
         let objectWorldPos = object.position(relativeTo: nil)
-        let offset = SIMD3<Float>(0, height, 0)
+        let offset = SIMD3<Float>(0, height, backwardsOffset)
         backgroundEntity.setPosition(objectWorldPos + offset, relativeTo: nil)
         
     
@@ -339,9 +345,9 @@ struct FileMetadataComponent: Component {
 
         // Example usage: Show label when object is placed
         Task {
-            await showLabel(for: object, with: label, color: UIColor(color), height: 0.1)
+            await showLabel(for: object, with: label, color: UIColor(color), height: 0.05)
             // Gaze Tracking Label
-            object.components.set(LabelComponent(text: label, color: UIColor(color).withAlphaComponent(0.5)))
+            object.components.set(LabelComponent(text: label, color: UIColor(color).withAlphaComponent(0.8)))
         }
 
         // Add physics with dynamic mode so it falls onto the table
@@ -415,7 +421,7 @@ struct FileMetadataComponent: Component {
             }
             
             if let labelComponent = currentGroupEntity?.components[LabelComponent.self] {
-                await showLabel(for: currentGroupEntity as! ModelEntity, with: labelComponent.text, color: labelComponent.color, height: 0.1)
+                await showLabel(for: currentGroupEntity as! ModelEntity, with: labelComponent.text, color: labelComponent.color, height: 0.005)
             }
         } else {
             // If a group is already open, remove it
@@ -506,23 +512,42 @@ struct FileMetadataComponent: Component {
                 // Add preview if available
                 if let previewName = fileDict["preview"],
                    let image = UIImage(named: previewName),
-                   let cgImage = image.cgImage,
-                   let textureResource = try? await TextureResource(image: cgImage, options: .init(semantic: nil)) {
+                   let cgImage = image.cgImage {
 
-                    var previewMaterial = PhysicallyBasedMaterial()
-                    previewMaterial.baseColor = PhysicallyBasedMaterial.BaseColor(
-                        tint: .white,
-                        texture: .init(textureResource)
-                    )
+                    let width = CGFloat(cgImage.width)
+                    let height = CGFloat(cgImage.height)
+                    var cropRect: CGRect
 
-                    let previewPlane = ModelEntity(
-                        mesh: .generatePlane(width: 0.08, height: 0.08, cornerRadius: 0.014),
-                        materials: [previewMaterial]
-                    )
-                    previewPlane.name = "🖼 PreviewPlane \(index)"
-                    previewPlane.setPosition(SIMD3<Float>(0, 0.001, 0), relativeTo: fileGroupEntity)
-                    previewPlane.transform.rotation = simd_quatf(angle: -.pi/2, axis: SIMD3<Float>(1, 0, 0))
-                    fileGroupEntity.addChild(previewPlane)
+                    if width > height {
+                        // Landscape: use the full height and crop the sides.
+                        let cropWidth = height
+                        let xOffset = (width - cropWidth) / 2.0
+                        cropRect = CGRect(x: xOffset, y: 0, width: cropWidth, height: height)
+                    } else {
+                        // Portrait: use the full width and crop the top and bottom.
+                        let cropHeight = width
+                        let yOffset = (height - cropHeight) / 2.0
+                        cropRect = CGRect(x: 0, y: yOffset, width: width, height: cropHeight)
+                    }
+                    
+                    if let croppedCGImage = cgImage.cropping(to: cropRect),
+                       let textureResource = try? await TextureResource(image: croppedCGImage, options: .init(semantic: nil)) {
+
+                        var previewMaterial = PhysicallyBasedMaterial()
+                        previewMaterial.baseColor = PhysicallyBasedMaterial.BaseColor(
+                            tint: .white,
+                            texture: .init(textureResource)
+                        )
+
+                        let previewPlane = ModelEntity(
+                            mesh: .generatePlane(width: 0.08, height: 0.08, cornerRadius: 0.014),
+                            materials: [previewMaterial]
+                        )
+                        previewPlane.name = "🖼 PreviewPlane \(index)"
+                        previewPlane.setPosition(SIMD3<Float>(0, 0.001, 0), relativeTo: fileGroupEntity)
+                        previewPlane.transform.rotation = simd_quatf(angle: -.pi/2, axis: SIMD3<Float>(1, 0, 0))
+                        fileGroupEntity.addChild(previewPlane)
+                    }
                 }
 
                 // ✅ Make the group entity fully interactive
@@ -558,7 +583,7 @@ struct FileMetadataComponent: Component {
                 
                 // Attach metadata and label
                 if let fileLabel = fileDict["label"] {
-                    fileGroupEntity.components.set(LabelComponent(text: fileLabel, color: .white.withAlphaComponent(0.5)))
+                    fileGroupEntity.components.set(LabelComponent(text: fileLabel, color: .white))
                 }
 
                 if let fileLabel = fileDict["label"],
@@ -591,7 +616,7 @@ struct FileMetadataComponent: Component {
             print("LEFT HAND PINCH")
             if let entityToAnchor = contentEntity.findEntity(byLabel: label) {
                 if let labelComponent = entityToAnchor.components[LabelComponent.self] {
-                    await showLabel(for: entityToAnchor, with: labelComponent.text, color: labelComponent.color, height: 0.1)
+                    await showLabel(for: entityToAnchor, with: labelComponent.text, color: labelComponent.color, height: 0.03)
                 }
             }
             
