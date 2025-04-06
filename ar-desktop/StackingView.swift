@@ -95,19 +95,19 @@ struct StackingView: View {
             File(label: "Messages", fileType: "application", preview:"messages.png", fileLocation: "messages.png"),
             File(label: "WhatsApp", fileType: "application", preview:"whatsapp.png", fileLocation: "whatsapp.png"),
             File(label: "Mail", fileType: "application", preview:"mail.png", fileLocation: "mail.png"),
-            File(label: "Letter to Grandad", fileType: "pdf", preview:"notes.png", fileLocation: "Letter_to_Grandad.pdf"),
-            File(label: "Emergency Phone Numbers", fileType: "pdf", preview:"notes.png", fileLocation: "OKC_Emergencies.pdf")
+            File(label: "Letter to Grandad", fileType: "pdf", preview:"grandad-letter-prev.png", fileLocation: "Letter_to_Grandad.pdf"),
+            File(label: "Emergency Phone Numbers", fileType: "pdf", preview:"helpful-numbers-prev.png", fileLocation: "OKC_Emergencies.pdf")
         ]),
         ObjectData(materialName: "Yellow_v2", label: "Office", color: hexStringToUIColor(hex:"#F4FE04"), files: [
-            File(label: "Word", fileType: "application", preview:"", fileLocation: "/src/word"),
-            File(label: "Excel", fileType: "application", preview:"", fileLocation: "/src/word"),
-            File(label: "Slack", fileType: "application", preview:"", fileLocation: "/src/word"),
-            File(label: "Photoshop", fileType: "application", preview:"", fileLocation: "/src/word"),
+            File(label: "Word", fileType: "application", preview:"word.jpg", fileLocation: "word.jpg"),
+            File(label: "Excel", fileType: "application", preview:"excel.png", fileLocation: "excel.png"),
+            File(label: "Slack", fileType: "application", preview:"slack.png", fileLocation: "slack.png"),
+            File(label: "Photoshop", fileType: "application", preview:"photoshop.png", fileLocation: "photoshop.png"),
         ]),
         ObjectData(materialName: "Green_v2", label: "Browsers", color: hexStringToUIColor(hex:"#2ABB5D"), files: [
-            File(label: "Chrome", fileType: "application", preview:"", fileLocation: "/src/chrome"),
-            File(label: "ChatGPT", fileType: "application", preview:"", fileLocation: "/src/chrome"),
-            File(label: "Spotify", fileType: "application", preview:"", fileLocation: "/src/chrome"),
+            File(label: "Chrome", fileType: "application", preview:"chrome.png", fileLocation: "chrome.png"),
+            File(label: "ChatGPT", fileType: "application", preview:"chatgpt.png", fileLocation: "chatgpt.png"),
+            File(label: "Spotify", fileType: "application", preview:"spotify.png", fileLocation: "spotify.png"),
         ]),
         ObjectData(materialName: "Blue_v2", label: "Memories", color: hexStringToUIColor(hex:"#5074FD"), files: [
             File(label: "Northern Lights", fileType: "photo", preview:"northern_lights.jp2", fileLocation: "northern_lights.jp2"),
@@ -118,12 +118,12 @@ struct StackingView: View {
             File(label: "Biking by the River", fileType: "photo", preview:"bike.jpeg", fileLocation: "bike.jpeg"),
         ]),
         ObjectData(materialName: "Purple_v2", label: "Documents", color: hexStringToUIColor(hex:"#AE69FB"), files: [
-            File(label: "Independent Work Proposal", fileType: "pdf", preview:"notes.png", fileLocation: "project_proposal.pdf"),
-            File(label: "Affirmations", fileType: "pdf", preview:"notes.png", fileLocation: "affirmations.pdf"),
-            File(label: "Beyond Being There", fileType: "pdf", preview:"notes.png", fileLocation: "Beyond_Being_There.pdf"),
-            File(label: "Programmable Bricks", fileType: "pdf", preview:"notes.png", fileLocation: "Programmable_Bricks.pdf"),
-            File(label: "My Mount Etna Adventure", fileType: "file", preview:"notes.png", fileLocation: "My_Mount_Etna_Adventure.docx"),
-            File(label: "Redefining Research Crowdsourcing", fileType: "pdf", preview:"notes.png", fileLocation: "Redefining_Research_Crowdsourcing.pdf"),
+            File(label: "Independent Work Proposal", fileType: "pdf", preview:"project-proposal-prev.png", fileLocation: "project_proposal.pdf"),
+            File(label: "Affirmations", fileType: "pdf", preview:"affirmations-prev.png", fileLocation: "affirmations.pdf"),
+            File(label: "Beyond Being There", fileType: "pdf", preview:"beyond-being-there-prev.png", fileLocation: "Beyond_Being_There.pdf"),
+            File(label: "Programmable Bricks", fileType: "pdf", preview:"programmable-brikcs-prev.png", fileLocation: "Programmable_Bricks.pdf"),
+            File(label: "My Mount Etna Adventure", fileType: "file", preview:"mt-etna-prev.png", fileLocation: "My_Mount_Etna_Adventure.docx"),
+            File(label: "Redefining Research Crowdsourcing", fileType: "pdf", preview:"digital-twins-prev.png", fileLocation: "Redefining_Research_Crowdsourcing.pdf"),
         ]),
     ]
     

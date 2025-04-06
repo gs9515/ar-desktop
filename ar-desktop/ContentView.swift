@@ -29,9 +29,11 @@ struct ContentView: View {
                             .padding(.bottom, 15)
 
                         Text("""
-                            To start the desktop environment, click on the 'Start Desktop' button. Point with your left index finger where you want a entity to spawn. Make a pinching gesture with your right hand to drop the entity.
+                            To begin, place your left index finger where you’d like to center your desktop. Then, pinch the “Start Desktop” button below to launch it.
+                            
+                            Once your desktop is active, pinch with your right hand to drop groups of files beneath your left finger.
 
-                            You can place the entities on tables and other surfaces, and also interact with them using your hands!
+                            You can place these groups on tables or other surfaces. Try pinching a group to open it, or move it around by either pinching and dragging or gently nudging it with your hands
                             """)
                             .multilineTextAlignment(.center)  // Ensures text is centered
                             .padding(.bottom, 30)

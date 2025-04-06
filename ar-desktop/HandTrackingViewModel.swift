@@ -75,48 +75,51 @@ struct FileMetadataComponent: Component {
     
     
     // FUNCTIONS
+    func showLabel(for object: ModelEntity, with text: String, color theColor: UIColor, height: Float = 0.2) async {let font = UIFont(name: "Karla-Bold", size: 0.2) ?? .systemFont(ofSize: 0.2)
 
-    func showLabel(for object: ModelEntity, with text: String, color theColor: UIColor, height: Float = 0.2) async {
-        let textMesh = MeshResource.generateText(
+        let textEntity = ModelEntity()
+        let mesh = MeshResource.generateText(
             text,
-            extrusionDepth: 0.01,
-            font: .systemFont(ofSize: 0.2),
+            extrusionDepth: 0.005,
+            font: font,
             containerFrame: .zero,
             alignment: .center,
-            lineBreakMode: .byWordWrapping
+            lineBreakMode: .byClipping // Avoid excessive background size
         )
-        
-        let textMaterial = UnlitMaterial(color: .black)
-        let textEntity = ModelEntity(mesh: textMesh, materials: [textMaterial])
-        textEntity.scale = SIMD3<Float>(repeating: 0.05)
-        
-        let textBounds = textMesh.bounds.extents
-        let backgroundWidth = textBounds.x * 0.2
-        let backgroundHeight = textBounds.y * 0.3
-        
-        let transparentColor = theColor.withAlphaComponent(0.0)
-        let backgroundMaterial = SimpleMaterial(color: transparentColor, isMetallic: false)
+        let material = UnlitMaterial(color: .black)
+        textEntity.model = ModelComponent(mesh: mesh, materials: [material])
+
+        // Adjust scale and compute true size
+        let scaleFactor: Float = 0.1
+        textEntity.scale = SIMD3<Float>(repeating: scaleFactor)
+        let bounds = mesh.bounds
+        let textWidth = bounds.extents.x * scaleFactor
+        let textHeight = bounds.extents.y * scaleFactor
+
+        // Create background based on exact text size
+        let backgroundWidth = textWidth + 0.01
+        let backgroundHeight = textHeight + 0.01
+        let backgroundMaterial = SimpleMaterial(color: theColor.withAlphaComponent(0.0), isMetallic: false)
         let backgroundEntity = ModelEntity(
-            mesh: .generatePlane(width: backgroundWidth, height: backgroundHeight, cornerRadius: 0.01),
+            mesh: .generatePlane(width: backgroundWidth, height: backgroundHeight, cornerRadius: 0.005),
             materials: [backgroundMaterial]
         )
-        
-        let textCenterOffset = SIMD3<Float>(
-            -textBounds.x * textEntity.scale.x,
-            -textBounds.y * textEntity.scale.y,
-            0.001
-        )
-        textEntity.setPosition(textCenterOffset, relativeTo: backgroundEntity)
-        textEntity.scale = SIMD3<Float>(repeating: 0.1)
+
+        // Offset text to be visually centered on background
+        let centerOffset = SIMD3<Float>(-bounds.center.x * scaleFactor, -bounds.center.y * scaleFactor, 0.001)
+        textEntity.setPosition(centerOffset, relativeTo: backgroundEntity)
+
+        // Add to background
         backgroundEntity.addChild(textEntity)
-        
         backgroundEntity.components.set(BillboardComponent())
         contentEntity.addChild(backgroundEntity)
-        
+
+        // Position above the object
         let objectWorldPos = object.position(relativeTo: nil)
         let offset = SIMD3<Float>(0, height, 0)
         backgroundEntity.setPosition(objectWorldPos + offset, relativeTo: nil)
-
+        
+    
         // Fade in
         await animateAlpha(of: backgroundEntity, from: 0.0, to: 0.5, duration: 0.15)
 
@@ -513,7 +516,7 @@ struct FileMetadataComponent: Component {
                     )
 
                     let previewPlane = ModelEntity(
-                        mesh: .generatePlane(width: 0.08, height: 0.08, cornerRadius: 0.013),
+                        mesh: .generatePlane(width: 0.08, height: 0.08, cornerRadius: 0.014),
                         materials: [previewMaterial]
                     )
                     previewPlane.name = "🖼 PreviewPlane \(index)"
@@ -536,8 +539,8 @@ struct FileMetadataComponent: Component {
 
                 // Set damping and gravity
                 if var physicsBody = fileGroupEntity.components[PhysicsBodyComponent.self] {
-                    physicsBody.linearDamping = 2.0   // More damping = slower movement
-                    physicsBody.angularDamping = 2.0
+                    physicsBody.linearDamping = 4.0   // More damping = slower movement
+                    physicsBody.angularDamping = 0.8
                     physicsBody.isAffectedByGravity = true
                     physicsBody.mode = .dynamic
                     fileGroupEntity.components.set(physicsBody)
