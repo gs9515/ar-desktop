@@ -204,12 +204,11 @@ struct StackingView: View {
                 }
         )
         .gesture(
-            // Enable pinch to drag on these items
             DragGesture()
                 .targetedToAnyEntity()
                 .onChanged { value in
-                    if let entity = value.entity as? ModelEntity {
-                        entity.position = value.convert(value.location3D, from: .local, to: entity.parent!)
+                    if let entity = value.entity as? ModelEntity,
+                       entity.customMetadata != nil || entity.components[FileMetadataComponent.self] != nil {                        entity.position = value.convert(value.location3D, from: .local, to: entity.parent!)
                     }
                 }
         )
