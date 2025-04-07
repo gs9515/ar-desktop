@@ -161,6 +161,8 @@ struct FileMetadataComponent: Component {
     func setupContentEntity() -> Entity {
         // Add fingertips
         for entity in fingerEntities.values {
+            // Remove collision from fingertips so they don't physically nudge objects
+            entity.collision = nil
             contentEntity.addChild(entity)
         }
         return contentEntity
@@ -300,7 +302,7 @@ struct FileMetadataComponent: Component {
         } else {
             do {
                 let loadedEntity = try await Entity(named: meshName, in: realityKitContentBundle)
-                print("Loaded entity hierarchy for \(meshName):")
+//                print("Loaded entity hierarchy for \(meshName):")
 
                 if let modelEntity = loadedEntity.children.recursiveCompactMap({ $0 as? ModelEntity }).first,
                    let modelMesh = modelEntity.model?.mesh {
@@ -554,9 +556,9 @@ struct FileMetadataComponent: Component {
                 fileGroupEntity.components.set(InputTargetComponent(allowedInputTypes: [.indirect, .direct]))
                 
                 // Add physics to the group entity
-                let physicsMaterial = PhysicsMaterialResource.generate(friction: 0.9, restitution: 0.0) // No bounce
+                let physicsMaterial = PhysicsMaterialResource.generate(friction: 0.8, restitution: 0.1)
                 let physicsComponent = PhysicsBodyComponent(
-                    massProperties: .init(mass: 1.0),
+                    massProperties: .init(mass: 0.5),
                     material: physicsMaterial,
                     mode: .dynamic
                 )
@@ -564,8 +566,8 @@ struct FileMetadataComponent: Component {
 
                 // Set damping and gravity
                 if var physicsBody = fileGroupEntity.components[PhysicsBodyComponent.self] {
-                    physicsBody.linearDamping = 4.0   // More damping = slower movement
-                    physicsBody.angularDamping = 0.8
+                    physicsBody.linearDamping = 7.0   // More damping = slower movement
+                    physicsBody.angularDamping = 0.5
                     physicsBody.isAffectedByGravity = true
                     physicsBody.mode = .dynamic
                     fileGroupEntity.components.set(physicsBody)
@@ -598,7 +600,7 @@ struct FileMetadataComponent: Component {
                 fileGroupEntity.setPosition(filePosition, relativeTo: highlightEntity)
                 
                 // Debug print to verify entity is set up correctly
-                print("✅ Added file group entity with physics: \(fileGroupEntity.name)")
+//                print("✅ Added file group entity with physics: \(fileGroupEntity.name)")
             }
         }
     }
@@ -613,7 +615,7 @@ struct FileMetadataComponent: Component {
         
         // ONLY SHOW LABEL IF PINCHED WITH LEFT HAND
         if pinchHand == .left {
-            print("LEFT HAND PINCH")
+//            print("LEFT HAND PINCH")
             if let entityToAnchor = contentEntity.findEntity(byLabel: label) {
                 if let labelComponent = entityToAnchor.components[LabelComponent.self] {
                     await showLabel(for: entityToAnchor, with: labelComponent.text, color: labelComponent.color, height: 0.03)

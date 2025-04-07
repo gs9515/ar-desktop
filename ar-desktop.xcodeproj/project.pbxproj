@@ -21,9 +21,9 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		EA3C077B2D64274800982F76 /* ar-desktop.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "ar-desktop.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		EA3C077B2D64274800982F76 /* ar-desktop.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; name = "ar-desktop.app"; path = "/Users/garysmith/Desktop/LocalProjects/ar-desktop/build/Debug-xros/ar-desktop.app"; sourceTree = "<absolute>"; };
 		EA3C077F2D64274800982F76 /* RealityKitContent */ = {isa = PBXFileReference; lastKnownFileType = wrapper; path = RealityKitContent; sourceTree = "<group>"; };
-		EA3C07962D64274A00982F76 /* ar-desktopTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "ar-desktopTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+		EA3C07962D64274A00982F76 /* ar-desktopTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; name = "ar-desktopTests.xctest"; path = "/Users/garysmith/Desktop/LocalProjects/ar-desktop/build/Debug-xros/ar-desktop.app/PlugIns/ar-desktopTests.xctest"; sourceTree = "<absolute>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -77,17 +77,7 @@
 				EA3C077D2D64274800982F76 /* ar-desktop */,
 				EA3C077E2D64274800982F76 /* Packages */,
 				EA3C07992D64274A00982F76 /* ar-desktopTests */,
-				EA3C077C2D64274800982F76 /* Products */,
 			);
-			sourceTree = "<group>";
-		};
-		EA3C077C2D64274800982F76 /* Products */ = {
-			isa = PBXGroup;
-			children = (
-				EA3C077B2D64274800982F76 /* ar-desktop.app */,
-				EA3C07962D64274A00982F76 /* ar-desktopTests.xctest */,
-			);
-			name = Products;
 			sourceTree = "<group>";
 		};
 		EA3C077E2D64274800982F76 /* Packages */ = {
@@ -176,7 +166,7 @@
 			mainGroup = EA3C07722D64274800982F76;
 			minimizedProjectReferenceProxies = 1;
 			preferredProjectObjectVersion = 77;
-			productRefGroup = EA3C077C2D64274800982F76 /* Products */;
+			productRefGroup = EA3C07722D64274800982F76;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (

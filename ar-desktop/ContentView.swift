@@ -19,27 +19,44 @@ struct ContentView: View {
 
     var body: some View {
         GeometryReader { proxy in
-            let textWidth = min(max(proxy.size.width * 0.4, 300), 500)
+            let textWidth = min(max(proxy.size.width * 0.4, 500), 500)
             
             ZStack {
                 HStack(spacing: 60) {
                     VStack(alignment: .center, spacing: 0) {  // Ensure center alignment
-                        Text("AR Desktop")
-                            .font(.system(size: 50, weight: .bold))
-                            .padding(.bottom, 15)
+                        Image("AR_Desk")
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .frame(height: 100)
+                            .padding(.top, 10)
+                            .padding(.bottom, 25)
 
-                        Text("""
-                            To begin, place your left index finger where you’d like to center your desktop. Then, pinch the “Start Desktop” button below to launch it.
-                            
-                            Once your desktop is active, pinch with your right hand to drop groups of files beneath your left finger.
-
-                            You can place these groups on tables or other surfaces. Try pinching a group to open it, or move it around by either pinching and dragging or gently nudging it with your hands
-                            """)
-                            .multilineTextAlignment(.center)  // Ensures text is centered
-                            .padding(.bottom, 30)
-                            .accessibilitySortPriority(3)
+                        VStack(alignment: .leading, spacing: 10) {
+                            HStack(alignment: .top) {
+                                Text("•")
+                                Text("Place your left index finger where you’d like to center your desktop. Then, pinch the “Start Desktop” button below to launch it.")
+                            }
+                            HStack(alignment: .top) {
+                                Text("•")
+                                Text("Once your desktop is active, pinch with your right hand to drop groups of files beneath your left finger.")
+                            }
+                            HStack(alignment: .top) {
+                                Text("•")
+                                Text("Place these groups on tables or other surfaces. Try pinching a group to open it, or move it around by either pinching and dragging or gently nudging it with your hands.")
+                            }
+                        }.foregroundColor(.black)
+                        .multilineTextAlignment(.center)
+                        .padding(.bottom, 30)
+                        .accessibilitySortPriority(3)
+                        
+                        Image("little-auras")
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .frame(height: 60) // Adjust the height as needed
+                            .padding(.bottom, 40)
 
                         Toggle(showImmersiveSpace ? "Stop Desktop" : "Start Desktop", isOn: $showImmersiveSpace)
+//                            .bold()
                             .onChange(of: showImmersiveSpace) { _, isShowing in
                                 Task {
                                     if isShowing {
@@ -52,12 +69,15 @@ struct ContentView: View {
                                 }
                             }
                             .toggleStyle(.button)
+                            .foregroundColor(.black)
+                            .tint(Color(red: 1.0, green: 190/255, blue: 0))
                     }
                     .frame(width: textWidth)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)  // Ensures centering
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)  // Ensures ZStack fills space
+            .background(Color(red: 1.0, green: 247/255, blue: 232/255)).opacity(0.7)
         }
     }
 }

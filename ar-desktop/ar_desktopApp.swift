@@ -17,6 +17,7 @@ struct ar_desktopApp: App {
         WindowGroup {
             ContentView()
         }
+        .defaultSize(width: 750, height: 650)
 
         ImmersiveSpace(id: "StackingSpace") {
             StackingView().environmentObject(appModel)
